@@ -132,10 +132,14 @@ func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	return rules, nil
 }
 
+func (ipt *IPTables) NewChain(table, chain string) error {
+	return ipt.run("-t", table, "-N", chain)
+}
+
 // ClearChain flushed (deletes all rules) in the specifed table/chain.
 // If the chain does not exist, new one will be created
 func (ipt *IPTables) ClearChain(table, chain string) error {
-	err := ipt.run("-t", table, "-N", chain)
+	err := ipt.NewChain(table, chain)
 
 	switch {
 	case err == nil:
