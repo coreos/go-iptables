@@ -115,7 +115,7 @@ func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Cmd{
 		Path:   ipt.path,
-		Args:   []string{ipt.path, "-t", table, "-S", chain},
+		Args:   []string{ipt.path, "--wait", "-t", table, "-S", chain},
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
