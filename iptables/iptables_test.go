@@ -115,7 +115,7 @@ func TestRules(t *testing.T) {
 
 	err = ipt.Delete("filter", chain, "-s", "10.1.0.0/16", "-d", "9.9.9.9/32", "-j", "ACCEPT")
 	if err != nil {
-		t.Fatalf("Insert failed: %v", err)
+		t.Fatalf("Delete failed: %v", err)
 	}
 
 	rules, err := ipt.List("filter", chain)
