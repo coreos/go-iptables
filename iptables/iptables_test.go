@@ -133,4 +133,16 @@ func TestRules(t *testing.T) {
 	if !reflect.DeepEqual(rules, expected) {
 		t.Fatalf("List mismatch: \ngot  %#v \nneed %#v", rules, expected)
 	}
+
+	// Clear the chain that was created.
+	err = ipt.ClearChain("filter", chain)
+	if err != nil {
+		t.Fatalf("Failed to clear test chain: %v", err)
+	}
+
+	// Delete the chain that was created
+	err = ipt.DeleteChain("filter", chain)
+	if err != nil {
+		t.Fatalf("Failed to delete test chain: %v", err)
+	}
 }
