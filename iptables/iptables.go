@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -40,7 +41,10 @@ func (e *Error) Error() string {
 }
 
 type IPTables struct {
-	path string
+	sync.Mutex
+	path     string
+	hasCheck bool
+	hasWait  bool
 }
 
 func New() (*IPTables, error) {
@@ -48,19 +52,19 @@ func New() (*IPTables, error) {
 	if err != nil {
 		return nil, err
 	}
+	checkPresent, waitPresent, err := getIptablesCommandSupport()
+	if err != nil {
+		log.Printf("Error checking iptables version, assuming version at least 1.4.20: %v", err)
+		checkPresent = true
+		waitPresent = true
+	}
 
-	return &IPTables{path}, nil
+	return &IPTables{path: path, hasCheck: checkPresent, hasWait: waitPresent}, nil
 }
 
 // Exists checks if given rulespec in specified table/chain exists
 func (ipt *IPTables) Exists(table, chain string, rulespec ...string) (bool, error) {
-	checkPresent, err := getIptablesHasCheckCommand()
-	if err != nil {
-		log.Printf("Error checking iptables version, assuming version at least 1.4.11: %v", err)
-		checkPresent = true
-	}
-
-	if !checkPresent {
+	if !ipt.hasCheck {
 		cmd := append([]string{"-A", chain}, rulespec...)
 		return existsForOldIpTables(table, strings.Join(cmd, " "))
 	} else {
@@ -113,9 +117,18 @@ func (ipt *IPTables) Delete(table, chain string, rulespec ...string) error {
 // List rules in specified table/chain
 func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	var stdout, stderr bytes.Buffer
+	args := []string{ipt.path, "-t", table, "-S", chain}
+
+	if ipt.hasWait {
+		args = append(args, "--wait")
+	} else {
+		ipt.Lock()
+		defer ipt.Unlock()
+	}
+
 	cmd := exec.Cmd{
 		Path:   ipt.path,
-		Args:   []string{ipt.path, "--wait", "-t", table, "-S", chain},
+		Args:   args,
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
@@ -160,7 +173,13 @@ func (ipt *IPTables) DeleteChain(table, chain string) error {
 
 func (ipt *IPTables) run(args ...string) error {
 	var stderr bytes.Buffer
-	args = append([]string{"--wait"}, args...)
+	if ipt.hasWait {
+		args = append([]string{"--wait"}, args...)
+	} else {
+		ipt.Lock()
+		defer ipt.Unlock()
+	}
+
 	cmd := exec.Cmd{
 		Path:   ipt.path,
 		Args:   append([]string{ipt.path}, args...),
@@ -174,19 +193,19 @@ func (ipt *IPTables) run(args ...string) error {
 	return nil
 }
 
-// Checks if iptables has the "-C" flag
-func getIptablesHasCheckCommand() (bool, error) {
+// Checks if iptables has the "-C" and "--wait" flag
+func getIptablesCommandSupport() (bool, bool, error) {
 	vstring, err := getIptablesVersionString()
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	v1, v2, v3, err := extractIptablesVersion(vstring)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
-	return iptablesHasCheckCommand(v1, v2, v3), nil
+	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), nil
 }
 
 // getIptablesVersion returns the first three components of the iptables version.
@@ -237,6 +256,20 @@ func iptablesHasCheckCommand(v1 int, v2 int, v3 int) bool {
 		return true
 	}
 	if v1 == 1 && v2 == 4 && v3 >= 11 {
+		return true
+	}
+	return false
+}
+
+// Checks if an iptables version is after 1.4.20, when --wait was added
+func iptablesHasWaitCommand(v1 int, v2 int, v3 int) bool {
+	if v1 > 1 {
+		return true
+	}
+	if v1 == 1 && v2 > 4 {
+		return true
+	}
+	if v1 == 1 && v2 == 4 && v3 >= 20 {
 		return true
 	}
 	return false
