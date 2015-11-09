@@ -4,6 +4,7 @@ go:
 
 install:
  - go get golang.org/x/tools/cmd/cover
+ - go get github.com/coreos/rkt/pkg/lock
 
 script:
  - ./build-check
