@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/coreos/rkt/pkg/lock"
 )
 
 // Adds the output of stderr to exec.ExitError
@@ -39,8 +41,17 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("exit status %v: %v", e.ExitStatus(), e.msg)
 }
 
+// In earlier versions of iptables, the xtables lock was implemented via a unix socket, but now flock is used
+// via this lockfile (http://git.netfilter.org/iptables/commit/?id=aa562a660d1555b13cffbac1e744033e91f82707)
+// Note the LSB-conforming "/run" directory does not exist on old distributions, so assume "/var is symlinked
+const xtablesLockDir = "/var/run"
+const xtablesLockFile = "xtables.lock"
+
 type IPTables struct {
-	path string
+	path     string
+	hasCheck bool
+	hasWait  bool
+	mutex    *lock.KeyLock
 }
 
 func New() (*IPTables, error) {
@@ -48,19 +59,23 @@ func New() (*IPTables, error) {
 	if err != nil {
 		return nil, err
 	}
+	checkPresent, waitPresent, err := getIptablesCommandSupport()
+	if err != nil {
+		log.Printf("Error checking iptables version, assuming version at least 1.4.20: %v", err)
+		checkPresent = true
+		waitPresent = true
+	}
+	mutex, err := lock.NewKeyLock(xtablesLockDir, xtablesLockFile)
+	if err != nil {
+		return nil, err
+	}
 
-	return &IPTables{path}, nil
+	return &IPTables{path: path, hasCheck: checkPresent, hasWait: waitPresent, mutex: mutex}, nil
 }
 
 // Exists checks if given rulespec in specified table/chain exists
 func (ipt *IPTables) Exists(table, chain string, rulespec ...string) (bool, error) {
-	checkPresent, err := getIptablesHasCheckCommand()
-	if err != nil {
-		log.Printf("Error checking iptables version, assuming version at least 1.4.11: %v", err)
-		checkPresent = true
-	}
-
-	if !checkPresent {
+	if !ipt.hasCheck {
 		cmd := append([]string{"-A", chain}, rulespec...)
 		return existsForOldIpTables(table, strings.Join(cmd, " "))
 	} else {
@@ -113,9 +128,20 @@ func (ipt *IPTables) Delete(table, chain string, rulespec ...string) error {
 // List rules in specified table/chain
 func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	var stdout, stderr bytes.Buffer
+	args := []string{ipt.path, "-t", table, "-S", chain}
+
+	if ipt.hasWait {
+		args = append(args, "--wait")
+	} else {
+		if err := ipt.mutex.ExclusiveKeyLock(); err != nil {
+			return nil, err
+		}
+		defer ipt.mutex.Unlock()
+	}
+
 	cmd := exec.Cmd{
 		Path:   ipt.path,
-		Args:   []string{ipt.path, "--wait", "-t", table, "-S", chain},
+		Args:   args,
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
@@ -160,7 +186,15 @@ func (ipt *IPTables) DeleteChain(table, chain string) error {
 
 func (ipt *IPTables) run(args ...string) error {
 	var stderr bytes.Buffer
-	args = append([]string{"--wait"}, args...)
+	if ipt.hasWait {
+		args = append([]string{"--wait"}, args...)
+	} else {
+		if err := ipt.mutex.ExclusiveKeyLock(); err != nil {
+			return err
+		}
+		defer ipt.mutex.Unlock()
+	}
+
 	cmd := exec.Cmd{
 		Path:   ipt.path,
 		Args:   append([]string{ipt.path}, args...),
@@ -174,19 +208,19 @@ func (ipt *IPTables) run(args ...string) error {
 	return nil
 }
 
-// Checks if iptables has the "-C" flag
-func getIptablesHasCheckCommand() (bool, error) {
+// Checks if iptables has the "-C" and "--wait" flag
+func getIptablesCommandSupport() (bool, bool, error) {
 	vstring, err := getIptablesVersionString()
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	v1, v2, v3, err := extractIptablesVersion(vstring)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
-	return iptablesHasCheckCommand(v1, v2, v3), nil
+	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), nil
 }
 
 // getIptablesVersion returns the first three components of the iptables version.
@@ -237,6 +271,20 @@ func iptablesHasCheckCommand(v1 int, v2 int, v3 int) bool {
 		return true
 	}
 	if v1 == 1 && v2 == 4 && v3 >= 11 {
+		return true
+	}
+	return false
+}
+
+// Checks if an iptables version is after 1.4.20, when --wait was added
+func iptablesHasWaitCommand(v1 int, v2 int, v3 int) bool {
+	if v1 > 1 {
+		return true
+	}
+	if v1 == 1 && v2 > 4 {
+		return true
+	}
+	if v1 == 1 && v2 == 4 && v3 >= 20 {
 		return true
 	}
 	return false
