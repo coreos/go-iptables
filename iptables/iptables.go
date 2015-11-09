@@ -43,7 +43,8 @@ func (e *Error) Error() string {
 
 // In earlier versions of iptables, the xtables lock was implemented via a unix socket, but now flock is used
 // via this lockfile (http://git.netfilter.org/iptables/commit/?id=aa562a660d1555b13cffbac1e744033e91f82707)
-const xtablesLockFile = "/run/xtables.lock"
+// Note the LSB-conforming "/run" directory does not exist on old distributions, so assume "/var is symlinked
+const xtablesLockFile = "/var/run/xtables.lock"
 
 type IPTables struct {
 	path     string
