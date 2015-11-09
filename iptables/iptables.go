@@ -44,7 +44,7 @@ func (e *Error) Error() string {
 // In earlier versions of iptables, the xtables lock was implemented via a unix socket, but now flock is used
 // via this lockfile (http://git.netfilter.org/iptables/commit/?id=aa562a660d1555b13cffbac1e744033e91f82707)
 // Note the LSB-conforming "/run" directory does not exist on old distributions, so assume "/var is symlinked
-const xtablesLockDir  = "/var/run"
+const xtablesLockDir = "/var/run"
 const xtablesLockFile = "xtables.lock"
 
 type IPTables struct {
@@ -133,9 +133,9 @@ func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	if ipt.hasWait {
 		args = append(args, "--wait")
 	} else {
-        if err := ipt.mutex.ExclusiveKeyLock(); err != nil {
-            return nil, err
-        }
+		if err := ipt.mutex.ExclusiveKeyLock(); err != nil {
+			return nil, err
+		}
 		defer ipt.mutex.Unlock()
 	}
 
@@ -189,9 +189,9 @@ func (ipt *IPTables) run(args ...string) error {
 	if ipt.hasWait {
 		args = append([]string{"--wait"}, args...)
 	} else {
-        if err := ipt.mutex.ExclusiveKeyLock(); err != nil {
-            return err
-        }
+		if err := ipt.mutex.ExclusiveKeyLock(); err != nil {
+			return err
+		}
 		defer ipt.mutex.Unlock()
 	}
 
