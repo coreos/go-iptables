@@ -49,7 +49,7 @@ type IPTables struct {
 	path     string
 	hasCheck bool
 	hasWait  bool
-	mutex   *lock.FileLock
+	mutex    *lock.FileLock
 }
 
 func New() (*IPTables, error) {
@@ -138,7 +138,7 @@ func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	} else {
 		if err := ipt.mutex.ExclusiveLock(); err != nil {
 			return nil, err
-		}
+	}
 		defer ipt.mutex.Unlock()
 	}
 
@@ -211,19 +211,19 @@ func (ipt *IPTables) run(args ...string) error {
 	return nil
 }
 
-// Checks if iptables has the "-C" flag
-func getIptablesHasCheckCommand() (bool, error) {
+// Checks if iptables has the "-C" and "--wait" flag
+func getIptablesCommandSupport() (bool, bool, error) {
 	vstring, err := getIptablesVersionString()
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	v1, v2, v3, err := extractIptablesVersion(vstring)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
-	return iptablesHasCheckCommand(v1, v2, v3), nil
+	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), nil
 }
 
 // getIptablesVersion returns the first three components of the iptables version.
@@ -274,6 +274,20 @@ func iptablesHasCheckCommand(v1 int, v2 int, v3 int) bool {
 		return true
 	}
 	if v1 == 1 && v2 == 4 && v3 >= 11 {
+		return true
+	}
+	return false
+}
+
+// Checks if an iptables version is after 1.4.20, when --wait was added
+func iptablesHasWaitCommand(v1 int, v2 int, v3 int) bool {
+	if v1 > 1 {
+		return true
+	}
+	if v1 == 1 && v2 > 4 {
+		return true
+	}
+	if v1 == 1 && v2 == 4 && v3 >= 20 {
 		return true
 	}
 	return false
