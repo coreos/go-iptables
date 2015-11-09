@@ -11,6 +11,8 @@ fi
 export GOBIN=${PWD}/bin
 export GOPATH=${PWD}/gopath
 
+go get github.com/coreos/rkt/pkg/lock
+
 eval $(go env)
 
 if [ ${GOOS} = "linux" ]; then
