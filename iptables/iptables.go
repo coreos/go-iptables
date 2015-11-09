@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/coreos/rkt/pkg/lock"
 )
 
 // Adds the output of stderr to exec.ExitError
@@ -39,8 +41,15 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("exit status %v: %v", e.ExitStatus(), e.msg)
 }
 
+// In earlier versions of iptables, the xtables lock was implemented via a unix socket, but now flock is used
+// via this lockfile (http://git.netfilter.org/iptables/commit/?id=aa562a660d1555b13cffbac1e744033e91f82707)
+const xtablesLockFile = "/run/xtables.lock"
+
 type IPTables struct {
-	path string
+	path     string
+	hasCheck bool
+	hasWait  bool
+	mutex   *lock.FileLock
 }
 
 func New() (*IPTables, error) {
@@ -48,8 +57,17 @@ func New() (*IPTables, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &IPTables{path}, nil
+	checkPresent, waitPresent, err := getIptablesCommandSupport()
+	if err != nil {
+		log.Printf("Error checking iptables version, assuming version at least 1.4.20: %v", err)
+		checkPresent = true
+		waitPresent = true
+	}
+	mutex, err := lock.NewLock(xtablesLockFile, lock.RegFile)
+	if err != nil {
+		return nil, err
+	}
+	return &IPTables{path: path, hasCheck: checkPresent, hasWait: waitPresent, mutex: mutex}, nil
 }
 
 // Exists checks if given rulespec in specified table/chain exists
@@ -113,6 +131,17 @@ func (ipt *IPTables) Delete(table, chain string, rulespec ...string) error {
 // List rules in specified table/chain
 func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	var stdout, stderr bytes.Buffer
+	args := []string{ipt.path, "-t", table, "-S", chain}
+
+	if ipt.hasWait {
+		args = append(args, "--wait")
+	} else {
+		if err := ipt.mutex.ExclusiveLock(); err != nil {
+			return nil, err
+		}
+		defer ipt.mutex.Unlock()
+	}
+
 	cmd := exec.Cmd{
 		Path:   ipt.path,
 		Args:   []string{ipt.path, "--wait", "-t", table, "-S", chain},
@@ -160,7 +189,15 @@ func (ipt *IPTables) DeleteChain(table, chain string) error {
 
 func (ipt *IPTables) run(args ...string) error {
 	var stderr bytes.Buffer
-	args = append([]string{"--wait"}, args...)
+	if ipt.hasWait {
+		args = append([]string{"--wait"}, args...)
+	} else {
+		if err := ipt.mutex.ExclusiveLock(); err != nil {
+			return err
+		}
+		defer ipt.mutex.Unlock()
+	}
+
 	cmd := exec.Cmd{
 		Path:   ipt.path,
 		Args:   append([]string{ipt.path}, args...),
