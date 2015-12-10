@@ -67,8 +67,15 @@ func TestChain(t *testing.T) {
 		t.Fatalf("ClearChain (of non-empty) failed: %v", err)
 	}
 
+	// rename the chain
+	newChain := randChain(t)
+	err = ipt.RenameChain("filter", chain, newChain)
+	if err != nil {
+		t.Fatalf("RenameChain failed: %v", err)
+	}
+
 	// chain empty, should be ok
-	err = ipt.DeleteChain("filter", chain)
+	err = ipt.DeleteChain("filter", newChain)
 	if err != nil {
 		t.Fatalf("DeleteChain of empty chain failed: %v", err)
 	}
