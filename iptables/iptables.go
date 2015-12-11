@@ -159,6 +159,11 @@ func (ipt *IPTables) ClearChain(table, chain string) error {
 	}
 }
 
+// RenameChain renames the old chain to the new one.
+func (ipt *IPTables) RenameChain(table, oldChain, newChain string) error {
+	return ipt.run("-t", table, "-E", oldChain, newChain)
+}
+
 // DeleteChain deletes the chain in the specified table.
 // The chain must be empty
 func (ipt *IPTables) DeleteChain(table, chain string) error {
