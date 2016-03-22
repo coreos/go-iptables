@@ -66,11 +66,10 @@ func (l *fileLock) tryLock() (Unlocker, error) {
 	}
 }
 
-// Unlock closes the underlying file, which implicitly unlocks it as well. It
-// also unlocks the associated mutex.
+// Unlock unlocks the xtable file. It also unlocks the associated mutex.
 func (l *fileLock) Unlock() error {
 	defer l.mu.Unlock()
-	return syscall.Close(l.fd)
+	return syscall.Flock(l.fd, syscall.LOCK_UN)
 }
 
 // newXtablesFileLock opens a new lock on the xtables lockfile without
