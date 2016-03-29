@@ -44,8 +44,6 @@ type IPTables struct {
 	path     string
 	hasCheck bool
 	hasWait  bool
-
-	fmu *fileLock
 }
 
 func New() (*IPTables, error) {
@@ -63,12 +61,6 @@ func New() (*IPTables, error) {
 		path:     path,
 		hasCheck: checkPresent,
 		hasWait:  waitPresent,
-	}
-	if !waitPresent {
-		ipt.fmu, err = newXtablesFileLock()
-		if err != nil {
-			return nil, err
-		}
 	}
 	return &ipt, nil
 }
@@ -185,7 +177,11 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	if ipt.hasWait {
 		args = append(args, "--wait")
 	} else {
-		ul, err := ipt.fmu.tryLock()
+		fmu, err := newXtablesFileLock()
+		if err != nil {
+			return err
+		}
+		ul, err := fmu.tryLock()
 		if err != nil {
 			return err
 		}
