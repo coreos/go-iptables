@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
 #
 # Run all go-iptables tests
 #   ./test
@@ -8,6 +8,7 @@
 #   PKG=./unit ./test
 #   PKG=ssh ./test
 #
+set -e
 
 # Invoke ./cover for HTML output
 COVER=${COVER:-"-cover"}
