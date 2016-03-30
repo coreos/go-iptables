@@ -12,6 +12,7 @@ env:
   global:
     - TOOLS_CMD=golang.org/x/tools/cmd
     - PATH=$GOROOT/bin:$PATH
+    - SUDO_PERMITTED=1
 
 matrix:
   allow_failures:

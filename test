@@ -46,6 +46,10 @@ TEST=${split[@]/#/${REPO_PATH}/}
 
 echo "Running tests..."
 go test -i ${TEST}
-sudo -E bash -c "umask 0; PATH=\$GOROOT/bin:\$PATH go test ${COVER} $@ ${TEST}"
+if [[ -z "$SUDO_PERMITTED" ]]; then
+    echo "Test aborted for safety reasons. Please set the SUDO_PERMITTED variable."
+    exit 1
+fi
 
+sudo -E bash -c "PATH=\$GOROOT/bin:\$PATH go test ${COVER} $@ ${TEST}"
 echo "Success"
