@@ -8,6 +8,11 @@ go:
   - 1.6
   - tip
 
+env:
+  global:
+    - TOOLS_CMD=golang.org/x/tools/cmd
+    - PATH=$GOROOT/bin:$PATH
+
 matrix:
   allow_failures:
     - go: tip
