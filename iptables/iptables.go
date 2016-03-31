@@ -81,10 +81,11 @@ func (ipt *IPTables) Exists(table, chain string, rulespec ...string) (bool, erro
 	}
 	cmd := append([]string{"-t", table, "-C", chain}, rulespec...)
 	err := ipt.run(cmd...)
+	eerr, eok := err.(*Error)
 	switch {
 	case err == nil:
 		return true, nil
-	case err.(*Error).ExitStatus() == 1:
+	case eok && eerr.ExitStatus() == 1:
 		return false, nil
 	default:
 		return false, err
@@ -148,10 +149,11 @@ func (ipt *IPTables) NewChain(table, chain string) error {
 func (ipt *IPTables) ClearChain(table, chain string) error {
 	err := ipt.NewChain(table, chain)
 
+	eerr, eok := err.(*Error)
 	switch {
 	case err == nil:
 		return nil
-	case err.(*Error).ExitStatus() == 1:
+	case eok && eerr.ExitStatus() == 1:
 		// chain already exists. Flush (clear) it.
 		return ipt.run("-t", table, "-F", chain)
 	default:
