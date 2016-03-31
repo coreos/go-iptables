@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -55,9 +54,7 @@ func New() (*IPTables, error) {
 	}
 	checkPresent, waitPresent, err := getIptablesCommandSupport()
 	if err != nil {
-		log.Printf("Error checking iptables version, assuming version at least 1.4.20: %v", err)
-		checkPresent = true
-		waitPresent = true
+		return nil, fmt.Errorf("error checking iptables version: %v", err)
 	}
 	ipt := IPTables{
 		path:     path,
