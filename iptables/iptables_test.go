@@ -45,6 +45,10 @@ func mustTestableIptables() []*IPTables {
 			path:    ipt.path,
 			hasWait: false,
 		}
+		iptNoWait.fmu, err = newXtablesFileLock()
+		if err != nil {
+			panic(fmt.Sprintf("NewXtablesFileLock failed: %v", err))
+		}
 		ipts = append(ipts, iptNoWait)
 	}
 	// ensure we check one variant without built-in checking
