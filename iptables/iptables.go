@@ -44,8 +44,6 @@ type IPTables struct {
 	path     string
 	hasCheck bool
 	hasWait  bool
-
-	fmu *fileLock
 }
 
 func New() (*IPTables, error) {
@@ -64,12 +62,6 @@ func New() (*IPTables, error) {
 		hasCheck: checkPresent,
 		hasWait:  waitPresent,
 	}
-	if !waitPresent {
-		ipt.fmu, err = newXtablesFileLock()
-		if err != nil {
-			return nil, err
-		}
-	}
 	return &ipt, nil
 }
 
@@ -81,10 +73,11 @@ func (ipt *IPTables) Exists(table, chain string, rulespec ...string) (bool, erro
 	}
 	cmd := append([]string{"-t", table, "-C", chain}, rulespec...)
 	err := ipt.run(cmd...)
+	eerr, eok := err.(*Error)
 	switch {
 	case err == nil:
 		return true, nil
-	case err.(*Error).ExitStatus() == 1:
+	case eok && eerr.ExitStatus() == 1:
 		return false, nil
 	default:
 		return false, err
@@ -148,10 +141,11 @@ func (ipt *IPTables) NewChain(table, chain string) error {
 func (ipt *IPTables) ClearChain(table, chain string) error {
 	err := ipt.NewChain(table, chain)
 
+	eerr, eok := err.(*Error)
 	switch {
 	case err == nil:
 		return nil
-	case err.(*Error).ExitStatus() == 1:
+	case eok && eerr.ExitStatus() == 1:
 		// chain already exists. Flush (clear) it.
 		return ipt.run("-t", table, "-F", chain)
 	default:
@@ -183,7 +177,11 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	if ipt.hasWait {
 		args = append(args, "--wait")
 	} else {
-		ul, err := ipt.fmu.tryLock()
+		fmu, err := newXtablesFileLock()
+		if err != nil {
+			return err
+		}
+		ul, err := fmu.tryLock()
 		if err != nil {
 			return err
 		}
