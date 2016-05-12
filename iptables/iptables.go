@@ -40,9 +40,10 @@ func (e *Error) Error() string {
 }
 
 type IPTables struct {
-	path     string
-	hasCheck bool
-	hasWait  bool
+	path      string
+	hasCheck  bool
+	hasWait   bool
+	usesFlock bool
 }
 
 func New() (*IPTables, error) {
@@ -50,14 +51,15 @@ func New() (*IPTables, error) {
 	if err != nil {
 		return nil, err
 	}
-	checkPresent, waitPresent, err := getIptablesCommandSupport()
+	checkPresent, waitPresent, usesFlock, err := getIptablesCommandSupport()
 	if err != nil {
 		return nil, fmt.Errorf("error checking iptables version: %v", err)
 	}
 	ipt := IPTables{
-		path:     path,
-		hasCheck: checkPresent,
-		hasWait:  waitPresent,
+		path:      path,
+		hasCheck:  checkPresent,
+		hasWait:   waitPresent,
+		usesFlock: usesFlock,
 	}
 	return &ipt, nil
 }
@@ -173,7 +175,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	args = append([]string{ipt.path}, args...)
 	if ipt.hasWait {
 		args = append(args, "--wait")
-	} else {
+	} else if !ipt.usesFlock {
 		fmu, err := newXtablesFileLock()
 		if err != nil {
 			return err
@@ -201,18 +203,18 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 }
 
 // Checks if iptables has the "-C" and "--wait" flag
-func getIptablesCommandSupport() (bool, bool, error) {
+func getIptablesCommandSupport() (bool, bool, bool, error) {
 	vstring, err := getIptablesVersionString()
 	if err != nil {
-		return false, false, err
+		return false, false, false, err
 	}
 
 	v1, v2, v3, err := extractIptablesVersion(vstring)
 	if err != nil {
-		return false, false, err
+		return false, false, false, err
 	}
 
-	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), nil
+	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), iptablesUsesFlock(v1, v2, v3), nil
 }
 
 // getIptablesVersion returns the first three components of the iptables version.
@@ -277,6 +279,18 @@ func iptablesHasWaitCommand(v1 int, v2 int, v3 int) bool {
 		return true
 	}
 	if v1 == 1 && v2 == 4 && v3 >= 20 {
+		return true
+	}
+	return false
+}
+
+// Checks if an iptables version is after 1.6.0, when it uses flock()
+// instead of abstract unix sockets
+func iptablesUsesFlock(v1 int, v2 int, v3 int) bool {
+	if v1 > 1 {
+		return true
+	}
+	if v1 == 1 && v2 >= 6 {
 		return true
 	}
 	return false
