@@ -58,7 +58,7 @@ func randChain(t *testing.T) string {
 }
 
 // simply testing if table/slice contains a specific string value
-func isInTable(list []string, value string) bool {
+func contains(list []string, value string) bool {
 	for _, val := range list {
 		if val == value {
 			return true
@@ -112,7 +112,7 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 	// Saving the list of chains before executing tests
 	originaListChain, err := ipt.ListChains("filter")
 	if err != nil {
-		t.Fatalf("ListChain of Initial failed: %v", err)
+		t.Fatalf("ListChains of Initial failed: %v", err)
 	}
 
 	// chain shouldn't exist, this will create new
@@ -126,7 +126,7 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 	if err != nil {
 		t.Fatalf("ListChain failed: %v", err)
 	}
-	if !isInTable(listChain, chain) {
+	if !contains(listChain, chain) {
 		t.Fatalf("ListChains doesn't contain the new chain %v", chain)
 	}
 
@@ -172,7 +172,7 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("ListChains failed: %v", err)
 	}
 	if !reflect.DeepEqual(originaListChain, listChain) {
-		t.Fatalf("ChainList mismatch: \ngot  %#v \nneed %#v", originaListChain, listChain)
+		t.Fatalf("ListChains mismatch: \ngot  %#v \nneed %#v", originaListChain, listChain)
 	}
 }
 
