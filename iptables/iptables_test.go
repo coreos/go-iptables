@@ -57,7 +57,6 @@ func randChain(t *testing.T) string {
 	return "TEST-" + n.String()
 }
 
-// simply testing if table/slice contains a specific string value
 func contains(list []string, value string) bool {
 	for _, val := range list {
 		if val == value {
@@ -121,10 +120,10 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("ClearChain (of missing) failed: %v", err)
 	}
 
-	// chain should be in ListChain
+	// chain should be in listChain
 	listChain, err := ipt.ListChains("filter")
 	if err != nil {
-		t.Fatalf("ListChain failed: %v", err)
+		t.Fatalf("ListChains failed: %v", err)
 	}
 	if !contains(listChain, chain) {
 		t.Fatalf("ListChains doesn't contain the new chain %v", chain)

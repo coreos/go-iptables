@@ -146,13 +146,13 @@ func (ipt *IPTables) List(table, chain string) ([]string, error) {
 func (ipt *IPTables) ListChains(table string) ([]string, error) {
 	args := []string{"-t", table, "-S"}
 
-	// result contains the output of iptables -t $TABLE -S
 	result, err := ipt.executeList(args)
 	if err != nil {
 		return nil, err
 	}
 
-	// Iterating on all the rules to find the -P (default) and -N (New)
+	// Iterate over rules to find all default (-P) and user-specified (-N) chains.
+	// Chains definition always come before rules.
 	// Format is the following:
 	// -P OUTPUT ACCEPT
 	// -N Custom
