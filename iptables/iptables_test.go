@@ -57,6 +57,15 @@ func randChain(t *testing.T) string {
 	return "TEST-" + n.String()
 }
 
+func contains(list []string, value string) bool {
+	for _, val := range list {
+		if val == value {
+			return true
+		}
+	}
+	return false
+}
+
 // Create an array of IPTables with different hasWait/hasCheck to
 // test different behaviours
 func mustTestableIptables() []*IPTables {
@@ -99,10 +108,25 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 
 	chain := randChain(t)
 
+	// Saving the list of chains before executing tests
+	originaListChain, err := ipt.ListChains("filter")
+	if err != nil {
+		t.Fatalf("ListChains of Initial failed: %v", err)
+	}
+
 	// chain shouldn't exist, this will create new
-	err := ipt.ClearChain("filter", chain)
+	err = ipt.ClearChain("filter", chain)
 	if err != nil {
 		t.Fatalf("ClearChain (of missing) failed: %v", err)
+	}
+
+	// chain should be in listChain
+	listChain, err := ipt.ListChains("filter")
+	if err != nil {
+		t.Fatalf("ListChains failed: %v", err)
+	}
+	if !contains(listChain, chain) {
+		t.Fatalf("ListChains doesn't contain the new chain %v", chain)
 	}
 
 	// chain now exists
@@ -139,6 +163,15 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 	err = ipt.DeleteChain("filter", newChain)
 	if err != nil {
 		t.Fatalf("DeleteChain of empty chain failed: %v", err)
+	}
+
+	// check that chain is fully gone and that state similar to initial one
+	listChain, err = ipt.ListChains("filter")
+	if err != nil {
+		t.Fatalf("ListChains failed: %v", err)
+	}
+	if !reflect.DeepEqual(originaListChain, listChain) {
+		t.Fatalf("ListChains mismatch: \ngot  %#v \nneed %#v", originaListChain, listChain)
 	}
 }
 

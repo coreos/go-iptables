@@ -139,6 +139,35 @@ func (ipt *IPTables) Delete(table, chain string, rulespec ...string) error {
 // List rules in specified table/chain
 func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	args := []string{"-t", table, "-S", chain}
+	return ipt.executeList(args)
+}
+
+// ListChains returns a slice containing the name of each chain in the specified table.
+func (ipt *IPTables) ListChains(table string) ([]string, error) {
+	args := []string{"-t", table, "-S"}
+
+	result, err := ipt.executeList(args)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate over rules to find all default (-P) and user-specified (-N) chains.
+	// Chains definition always come before rules.
+	// Format is the following:
+	// -P OUTPUT ACCEPT
+	// -N Custom
+	var chains []string
+	for _, val := range result {
+		if strings.HasPrefix(val, "-P") || strings.HasPrefix(val, "-N") {
+			chains = append(chains, strings.Fields(val)[1])
+		} else {
+			break
+		}
+	}
+	return chains, nil
+}
+
+func (ipt *IPTables) executeList(args []string) ([]string, error) {
 	var stdout bytes.Buffer
 	if err := ipt.runWithOutput(args, &stdout); err != nil {
 		return nil, err
