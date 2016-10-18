@@ -52,17 +52,18 @@ type IPTables struct {
 	proto    Protocol
 	hasCheck bool
 	hasWait  bool
+	netNs    string
 }
 
 // New creates a new IPTables.
 // For backwards compatibility, this always uses IPv4, i.e. "iptables".
 func New() (*IPTables, error) {
-	return NewWithProtocol(ProtocolIPv4)
+	return NewWithProtocol(ProtocolIPv4, "")
 }
 
 // New creates a new IPTables for the given proto.
 // The proto will determine which command is used, either "iptables" or "ip6tables".
-func NewWithProtocol(proto Protocol) (*IPTables, error) {
+func NewWithProtocol(proto Protocol, netns string) (*IPTables, error) {
 	path, err := exec.LookPath(getIptablesCommand(proto))
 	if err != nil {
 		return nil, err
@@ -76,6 +77,7 @@ func NewWithProtocol(proto Protocol) (*IPTables, error) {
 		proto:    proto,
 		hasCheck: checkPresent,
 		hasWait:  waitPresent,
+		netNs:    netns,
 	}
 	return &ipt, nil
 }
@@ -238,10 +240,16 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 		}
 		defer ul.Unlock()
 	}
+	path := ipt.path
+	if ipt.netNs != "" {
+		path = "/sbin/ip"
+		prefix := []string{"ip", "netns", "exec", ipt.Netns}
+		args = append(prefix, args...)
+	}
 
 	var stderr bytes.Buffer
 	cmd := exec.Cmd{
-		Path:   ipt.path,
+		Path:   path,
 		Args:   args,
 		Stdout: stdout,
 		Stderr: &stderr,
