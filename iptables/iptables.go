@@ -243,7 +243,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	path := ipt.path
 	if ipt.netNs != "" {
 		path = "/sbin/ip"
-		prefix := []string{"ip", "netns", "exec", ipt.Netns}
+		prefix := []string{"ip", "netns", "exec", ipt.netNs}
 		args = append(prefix, args...)
 	}
 
