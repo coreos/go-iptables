@@ -79,7 +79,7 @@ func mustTestableIptables() []*IPTables {
 	}
 	ipts := []*IPTables{ipt, ip6t}
 	// ensure we check one variant without built-in locking
-	if ipt.hasWait {
+	if ipt.hasWait && !ipt.usesFlock {
 		iptNoWait := &IPTables{
 			path:    ipt.path,
 			hasWait: false,
@@ -87,7 +87,7 @@ func mustTestableIptables() []*IPTables {
 		ipts = append(ipts, iptNoWait)
 	}
 	// ensure we check one variant without built-in checking
-	if ipt.hasCheck {
+	if ipt.hasCheck && !ipt.usesFlock {
 		iptNoCheck := &IPTables{
 			path:     ipt.path,
 			hasCheck: false,
