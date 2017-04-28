@@ -36,7 +36,7 @@ func (e *Error) ExitStatus() int {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("exit status %v: %v", e.ExitStatus(), e.msg)
+	return fmt.Sprintf("iptables exit status %v: %v", e.ExitStatus(), e.msg)
 }
 
 // Protocol to differentiate between IPv4 and IPv6
@@ -248,7 +248,12 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	}
 
 	if err := cmd.Run(); err != nil {
-		return &Error{*(err.(*exec.ExitError)), stderr.String()}
+		switch err.(type) {
+		default:
+			return err
+		case *exec.ExitError:
+			return &Error{*(err.(*exec.ExitError)), stderr.String()}
+		}
 	}
 
 	return nil
