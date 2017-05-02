@@ -251,6 +251,22 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("List mismatch: \ngot  %#v \nneed %#v", rules, expected)
 	}
 
+	rules, err = ipt.ListWithCounters("filter", chain)
+	if err != nil {
+		t.Fatalf("ListWithCounters failed: %v", err)
+	}
+
+	expected = []string{
+		"-N " + chain,
+		"-A " + chain + " -s " + subnet1 + " -d " + address1 + " -c 0 0 -j ACCEPT",
+		"-A " + chain + " -s " + subnet2 + " -d " + address2 + " -c 0 0 -j ACCEPT",
+		"-A " + chain + " -s " + subnet2 + " -d " + address1 + " -c 0 0 -j ACCEPT",
+	}
+
+	if !reflect.DeepEqual(rules, expected) {
+		t.Fatalf("ListWithCounters mismatch: \ngot  %#v \nneed %#v", rules, expected)
+	}
+
 	// Clear the chain that was created.
 	err = ipt.ClearChain("filter", chain)
 	if err != nil {
