@@ -28,6 +28,7 @@ import (
 // Adds the output of stderr to exec.ExitError
 type Error struct {
 	exec.ExitError
+	cmd exec.Cmd
 	msg string
 }
 
@@ -36,7 +37,7 @@ func (e *Error) ExitStatus() int {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("exit status %v: %v", e.ExitStatus(), e.msg)
+	return fmt.Sprintf("running %v: exit status %v: %v", e.cmd.Args, e.ExitStatus(), e.msg)
 }
 
 // Protocol to differentiate between IPv4 and IPv6
@@ -254,7 +255,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	}
 
 	if err := cmd.Run(); err != nil {
-		return &Error{*(err.(*exec.ExitError)), stderr.String()}
+		return &Error{*(err.(*exec.ExitError)), cmd, stderr.String()}
 	}
 
 	return nil
