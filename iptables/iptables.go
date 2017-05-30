@@ -326,16 +326,11 @@ func getIptablesVersionString(path string) (string, error) {
 
 // Checks if an iptables version is after 1.4.11, when --check was added
 func iptablesHasCheckCommand(v1 int, v2 int, v3 int) bool {
-	if v1 > 1 {
-		return true
-	}
-	if v1 == 1 && v2 > 4 {
-		return true
-	}
-	if v1 == 1 && v2 == 4 && v3 >= 11 {
-		return true
-	}
-	return false
+	return ver(v1, v2, v3) > ver(1, 4, 11)
+}
+
+func ver(v1, v2, v3 int) int {
+	return v1<<20 | v2<<10 | v3
 }
 
 // Checks if an iptables version is after 1.4.20, when --wait was added
