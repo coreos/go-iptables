@@ -49,10 +49,11 @@ const (
 )
 
 type IPTables struct {
-	path     string
-	proto    Protocol
-	hasCheck bool
-	hasWait  bool
+	path      string
+	proto     Protocol
+	hasCheck  bool
+	hasWait   bool
+	usesFlock bool
 }
 
 // New creates a new IPTables.
@@ -68,15 +69,16 @@ func NewWithProtocol(proto Protocol) (*IPTables, error) {
 	if err != nil {
 		return nil, err
 	}
-	checkPresent, waitPresent, err := getIptablesCommandSupport(path)
+	usesFlock, checkPresent, waitPresent, err := getIptablesCommandSupport(path)
 	if err != nil {
 		return nil, fmt.Errorf("error checking iptables version: %v", err)
 	}
 	ipt := IPTables{
-		path:     path,
-		proto:    proto,
-		hasCheck: checkPresent,
-		hasWait:  waitPresent,
+		path:      path,
+		proto:     proto,
+		hasCheck:  checkPresent,
+		hasWait:   waitPresent,
+		usesFlock: usesFlock,
 	}
 	return &ipt, nil
 }
@@ -270,19 +272,19 @@ func getIptablesCommand(proto Protocol) string {
 	}
 }
 
-// Checks if iptables has the "-C" and "--wait" flag
-func getIptablesCommandSupport(path string) (bool, bool, error) {
+// Checks if iptables has the "-C" and "--wait" flag, and if the iptables command uses flock
+func getIptablesCommandSupport(path string) (bool, bool, bool, error) {
 	vstring, err := getIptablesVersionString(path)
 	if err != nil {
-		return false, false, err
+		return false, false, false, err
 	}
 
 	v1, v2, v3, err := extractIptablesVersion(vstring)
 	if err != nil {
-		return false, false, err
+		return false, false, false, err
 	}
 
-	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), nil
+	return iptablesUsesFlock(v1, v2, v3), iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), nil
 }
 
 // getIptablesVersion returns the first three components of the iptables version.
@@ -347,6 +349,18 @@ func iptablesHasWaitCommand(v1 int, v2 int, v3 int) bool {
 		return true
 	}
 	if v1 == 1 && v2 == 4 && v3 >= 20 {
+		return true
+	}
+	return false
+}
+
+// Checks if an iptables version is after 1.6.0, when it uses flock()
+// instead of abstract unix sockets
+func iptablesUsesFlock(v1 int, v2 int, v3 int) bool {
+	if v1 > 1 {
+		return true
+	}
+	if v1 == 1 && v2 >= 6 {
 		return true
 	}
 	return false
