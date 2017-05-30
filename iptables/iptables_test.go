@@ -66,8 +66,9 @@ func contains(list []string, value string) bool {
 	return false
 }
 
-// Create an array of IPTables with different hasWait/hasCheck to
-// test different behaviours
+// mustTestableIptables returns a list of ip(6)tables handles with various
+// features enabled & disabled, to test compatability.
+// We used to test noWait as well, but that was removed as of iptables v1.6.0
 func mustTestableIptables() []*IPTables {
 	ipt, err := New()
 	if err != nil {
@@ -78,21 +79,18 @@ func mustTestableIptables() []*IPTables {
 		panic(fmt.Sprintf("NewWithProtocol(ProtocolIPv6) failed: %v", err))
 	}
 	ipts := []*IPTables{ipt, ip6t}
-	// ensure we check one variant without built-in locking
-	if ipt.hasWait {
-		iptNoWait := &IPTables{
-			path:    ipt.path,
-			hasWait: false,
-		}
-		ipts = append(ipts, iptNoWait)
-	}
+
 	// ensure we check one variant without built-in checking
 	if ipt.hasCheck {
-		iptNoCheck := &IPTables{
-			path:     ipt.path,
-			hasCheck: false,
-		}
-		ipts = append(ipts, iptNoCheck)
+		i := *ipt
+		i.hasCheck = false
+		ipts = append(ipts, &i)
+
+		i6 := *ip6t
+		i6.hasCheck = false
+		ipts = append(ipts, &i6)
+	} else {
+		panic("iptables on this machine is too old -- missing -C")
 	}
 	return ipts
 }
@@ -104,7 +102,7 @@ func TestChain(t *testing.T) {
 }
 
 func runChainTests(t *testing.T, ipt *IPTables) {
-	t.Logf("testing %s (hasWait=%t, hasCheck=%t)", getIptablesCommand(ipt.Proto()), ipt.hasWait, ipt.hasCheck)
+	t.Logf("testing %s (hasWait=%t, hasCheck=%t)", ipt.path, ipt.hasWait, ipt.hasCheck)
 
 	chain := randChain(t)
 
