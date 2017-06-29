@@ -18,6 +18,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -303,5 +304,41 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 	err = ipt.DeleteChain("filter", chain)
 	if err != nil {
 		t.Fatalf("Failed to delete test chain: %v", err)
+	}
+}
+
+// TestError checks that we're OK when iptables fails to execute
+func TestError(t *testing.T) {
+	ipt, err := New()
+	if err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+
+	chain := randChain(t)
+	_, err = ipt.List("filter", chain)
+	if err == nil {
+		t.Fatalf("no error with invalid params")
+	}
+	switch e := err.(type) {
+	case *Error:
+		// OK
+	default:
+		t.Fatalf("expected type iptables.Error, got %t", e)
+	}
+
+	// Now set an invalid binary path
+	ipt.path = "/does-not-exist"
+
+	_, err = ipt.ListChains("filter")
+
+	if err == nil {
+		t.Fatalf("no error with invalid ipt binary")
+	}
+
+	switch e := err.(type) {
+	case *os.PathError:
+		// OK
+	default:
+		t.Fatalf("expected type os.PathError, got %t", e)
 	}
 }

@@ -324,7 +324,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	if err := cmd.Run(); err != nil {
 		switch e := err.(type) {
 		case *exec.ExitError:
-			return &Error{*e, stderr.String()}
+			return &Error{*e, cmd, stderr.String()}
 		default:
 			return err
 		}
