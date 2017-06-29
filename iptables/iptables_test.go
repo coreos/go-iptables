@@ -233,6 +233,11 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
+	err = ipt.Append("filter", chain, "-s", address1, "-d", subnet2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
 	rules, err := ipt.List("filter", chain)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
@@ -243,6 +248,7 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		"-A " + chain + " -s " + subnet1 + " -d " + address1 + " -j ACCEPT",
 		"-A " + chain + " -s " + subnet2 + " -d " + address2 + " -j ACCEPT",
 		"-A " + chain + " -s " + subnet2 + " -d " + address1 + " -j ACCEPT",
+		"-A " + chain + " -s " + address1 + " -d " + subnet2 + " -j ACCEPT",
 	}
 
 	if !reflect.DeepEqual(rules, expected) {
@@ -259,10 +265,32 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		"-A " + chain + " -s " + subnet1 + " -d " + address1 + " -c 0 0 -j ACCEPT",
 		"-A " + chain + " -s " + subnet2 + " -d " + address2 + " -c 0 0 -j ACCEPT",
 		"-A " + chain + " -s " + subnet2 + " -d " + address1 + " -c 0 0 -j ACCEPT",
+		"-A " + chain + " -s " + address1 + " -d " + subnet2 + " -c 0 0 -j ACCEPT",
 	}
 
 	if !reflect.DeepEqual(rules, expected) {
 		t.Fatalf("ListWithCounters mismatch: \ngot  %#v \nneed %#v", rules, expected)
+	}
+
+	stats, err := ipt.Stats("filter", chain)
+	if err != nil {
+		t.Fatalf("Stats failed: %v", err)
+	}
+
+	opt := "--"
+	if ipt.proto == ProtocolIPv6 {
+		opt = "  "
+	}
+
+	expectedStats := [][]string{
+		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet1, address1, ""},
+		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet2, address2, ""},
+		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet2, address1, ""},
+		{"0", "0", "ACCEPT", "all", opt, "*", "*", address1, subnet2, ""},
+	}
+
+	if !reflect.DeepEqual(stats, expectedStats) {
+		t.Fatalf("Stats mismatch: \ngot  %#v \nneed %#v", stats, expectedStats)
 	}
 
 	// Clear the chain that was created.
