@@ -68,7 +68,7 @@ func contains(list []string, value string) bool {
 }
 
 // mustTestableIptables returns a list of ip(6)tables handles with various
-// features enabled & disabled, to test compatability.
+// features enabled & disabled, to test compatibility.
 // We used to test noWait as well, but that was removed as of iptables v1.6.0
 func mustTestableIptables() []*IPTables {
 	ipt, err := New()
