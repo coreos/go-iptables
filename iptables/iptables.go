@@ -303,6 +303,11 @@ func (ipt *IPTables) ChangePolicy(table, chain, target string) error {
 	return ipt.run("-t", table, "-P", chain, target)
 }
 
+// Check if the underlying iptables command supports the --random-fully flag
+func (ipt *IPTables) HasRandomFully() bool {
+	return ipt.hasRandomFully
+}
+
 // run runs an iptables command with the given arguments, ignoring
 // any stdout output
 func (ipt *IPTables) run(args ...string) error {
