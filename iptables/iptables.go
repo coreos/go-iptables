@@ -62,6 +62,9 @@ type IPTables struct {
 	hasCheck       bool
 	hasWait        bool
 	hasRandomFully bool
+	v1             int
+	v2             int
+	v3             int
 }
 
 // New creates a new IPTables.
@@ -77,7 +80,10 @@ func NewWithProtocol(proto Protocol) (*IPTables, error) {
 	if err != nil {
 		return nil, err
 	}
-	checkPresent, waitPresent, randomFullyPresent, err := getIptablesCommandSupport(path)
+	vstring, err := getIptablesVersionString(path)
+	v1, v2, v3, err := extractIptablesVersion(vstring)
+
+	checkPresent, waitPresent, randomFullyPresent, err := getIptablesCommandSupport(v1, v2, v3)
 	if err != nil {
 		return nil, fmt.Errorf("error checking iptables version: %v", err)
 	}
@@ -87,6 +93,9 @@ func NewWithProtocol(proto Protocol) (*IPTables, error) {
 		hasCheck:       checkPresent,
 		hasWait:        waitPresent,
 		hasRandomFully: randomFullyPresent,
+		v1:             v1,
+		v2:             v2,
+		v3:             v3,
 	}
 	return &ipt, nil
 }
@@ -308,6 +317,11 @@ func (ipt *IPTables) HasRandomFully() bool {
 	return ipt.hasRandomFully
 }
 
+// Return version components of the underlying iptables command
+func (ipt *IPTables) GetIptablesVersion() (int, int, int) {
+	return ipt.v1, ipt.v2, ipt.v3
+}
+
 // run runs an iptables command with the given arguments, ignoring
 // any stdout output
 func (ipt *IPTables) run(args ...string) error {
@@ -362,16 +376,7 @@ func getIptablesCommand(proto Protocol) string {
 }
 
 // Checks if iptables has the "-C" and "--wait" flag
-func getIptablesCommandSupport(path string) (bool, bool, bool, error) {
-	vstring, err := getIptablesVersionString(path)
-	if err != nil {
-		return false, false, false, err
-	}
-
-	v1, v2, v3, err := extractIptablesVersion(vstring)
-	if err != nil {
-		return false, false, false, err
-	}
+func getIptablesCommandSupport(v1 int, v2 int, v3 int) (bool, bool, bool, error) {
 
 	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), iptablesHasRandomFully(v1, v2, v3), nil
 }
