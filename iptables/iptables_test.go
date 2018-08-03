@@ -97,8 +97,10 @@ func mustTestableIptables() []*IPTables {
 }
 
 func TestChain(t *testing.T) {
-	for _, ipt := range mustTestableIptables() {
-		runChainTests(t, ipt)
+	for i, ipt := range mustTestableIptables() {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			runChainTests(t, ipt)
+		})
 	}
 }
 
@@ -179,8 +181,10 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 }
 
 func TestRules(t *testing.T) {
-	for _, ipt := range mustTestableIptables() {
-		runRulesTests(t, ipt)
+	for i, ipt := range mustTestableIptables() {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			runRulesTests(t, ipt)
+		})
 	}
 }
 
@@ -265,12 +269,17 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("ListWithCounters failed: %v", err)
 	}
 
+	suffix := " -c 0 0 -j ACCEPT"
+	if ipt.mode == "nf_tables" {
+		suffix = " -j ACCEPT -c 0 0"
+	}
+
 	expected = []string{
 		"-N " + chain,
-		"-A " + chain + " -s " + subnet1 + " -d " + address1 + " -c 0 0 -j ACCEPT",
-		"-A " + chain + " -s " + subnet2 + " -d " + address2 + " -c 0 0 -j ACCEPT",
-		"-A " + chain + " -s " + subnet2 + " -d " + address1 + " -c 0 0 -j ACCEPT",
-		"-A " + chain + " -s " + address1 + " -d " + subnet2 + " -c 0 0 -j ACCEPT",
+		"-A " + chain + " -s " + subnet1 + " -d " + address1 + suffix,
+		"-A " + chain + " -s " + subnet2 + " -d " + address2 + suffix,
+		"-A " + chain + " -s " + subnet2 + " -d " + address1 + suffix,
+		"-A " + chain + " -s " + address1 + " -d " + subnet2 + suffix,
 	}
 
 	if !reflect.DeepEqual(rules, expected) {
@@ -406,5 +415,78 @@ func TestIsNotExist(t *testing.T) {
 
 	if !e.IsNotExist() {
 		t.Fatal("IsNotExist returned false, expected true")
+	}
+}
+
+func TestFilterRuleOutput(t *testing.T) {
+	testCases := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{
+			"legacy output",
+			"-A foo1 -p tcp -m tcp --dport 1337 -j ACCEPT",
+			"-A foo1 -p tcp -m tcp --dport 1337 -j ACCEPT",
+		},
+		{
+			"nft output",
+			"[99:42] -A foo1 -p tcp -m tcp --dport 1337 -j ACCEPT",
+			"-A foo1 -p tcp -m tcp --dport 1337 -j ACCEPT -c 99 42",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := filterRuleOutput(tt.in)
+			if actual != tt.out {
+				t.Fatalf("expect %s actual %s", tt.out, actual)
+			}
+		})
+	}
+}
+
+func TestExtractIptablesVersion(t *testing.T) {
+	testCases := []struct {
+		in         string
+		v1, v2, v3 int
+		mode       string
+		err        bool
+	}{
+		{
+			"iptables v1.8.0 (nf_tables)",
+			1, 8, 0,
+			"nf_tables",
+			false,
+		},
+		{
+			"iptables v1.8.0 (legacy)",
+			1, 8, 0,
+			"legacy",
+			false,
+		},
+		{
+			"iptables v1.6.2",
+			1, 6, 2,
+			"legacy",
+			false,
+		},
+	}
+
+	for i, tt := range testCases {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			v1, v2, v3, mode, err := extractIptablesVersion(tt.in)
+			if err == nil && tt.err {
+				t.Fatal("expected err, got none")
+			} else if err != nil && !tt.err {
+				t.Fatalf("unexpected err %s", err)
+			}
+
+			if v1 != tt.v1 || v2 != tt.v2 || v3 != tt.v3 || mode != tt.mode {
+				t.Fatalf("expected %d %d %d %s, got %d %d %d %s",
+					tt.v1, tt.v2, tt.v3, tt.mode,
+					v1, v2, v3, mode)
+			}
+		})
 	}
 }
