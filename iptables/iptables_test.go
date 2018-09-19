@@ -152,6 +152,18 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 		t.Fatal("DeleteChain of non-empty chain returned IsNotExist")
 	}
 
+	// lets re-put a simple rule in again
+	err = ipt.Append("filter", chain, "-s", "0/0", "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	// lets flush the chain
+	err = ipt.FlushChain("filter", chain)
+	if err != nil {
+		t.Fatalf("Flush table chain failed: %v", err)
+	}
+
 	err = ipt.ClearChain("filter", chain)
 	if err != nil {
 		t.Fatalf("ClearChain (of non-empty) failed: %v", err)

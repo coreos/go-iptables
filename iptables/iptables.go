@@ -324,13 +324,8 @@ func (ipt *IPTables) ClearChain(table, chain string) error {
 	}
 }
 
-// Flush table
-func (ipt* IPTables) FlushTable(table string) error{
-	return ipt.run("-t", table, "--flush")
-}
-
-// Flush chain
-func (ipt* IPTables) FlushChain(table string, chain string) error{
+// Flush table chain
+func (ipt *IPTables) FlushChain(table string, chain string) error {
 	return ipt.run("-t", table, "--flush", chain)
 }
 
