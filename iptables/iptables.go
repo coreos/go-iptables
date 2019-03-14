@@ -72,6 +72,20 @@ type IPTables struct {
 	mode           string // the underlying iptables operating mode, e.g. nf_tables
 }
 
+// Stat represents a structured statistic entry.
+type Stat struct {
+	Packets     string `json:"pkts"`
+	Bytes       string `json:"bytes"`
+	Target      string `json:"target"`
+	Protocol    string `json:"prot"`
+	Opt         string `json:"opt"`
+	Input       string `json:"in"`
+	Output      string `json:"out"`
+	Source      string `json:"source"`
+	Destination string `json:"destination"`
+	Options     string `json:"options"`
+}
+
 // New creates a new IPTables.
 // For backwards compatibility, this always uses IPv4, i.e. "iptables".
 func New() (*IPTables, error) {
@@ -261,6 +275,29 @@ func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 		rows = append(rows, fields)
 	}
 	return rows, nil
+}
+
+// StructuredStats returns statistics as structured data which may be further
+// parsed and marshaled.
+func (ipt *IPTables) StructuredStats(table, chain string) ([]Stat, error) {
+	rawStats, err := ipt.Stats(table, chain)
+	if err != nil {
+		return nil, err
+	}
+
+	structStats := []Stat{}
+	for _, rawStat := range rawStats {
+		if len(rawStat) != 10 {
+			return nil, fmt.Errorf("raw stat contained unexpected fields")
+		}
+		structStat := Stat{
+			rawStat[0], rawStat[1], rawStat[2], rawStat[3], rawStat[4],
+			rawStat[5], rawStat[6], rawStat[7], rawStat[8], rawStat[9],
+		}
+		structStats = append(structStats, structStat)
+	}
+
+	return structStats, nil
 }
 
 func (ipt *IPTables) executeList(args []string) ([]string, error) {

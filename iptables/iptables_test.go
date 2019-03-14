@@ -307,6 +307,23 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("Stats mismatch: \ngot  %#v \nneed %#v", stats, expectedStats)
 	}
 
+	structStats, err := ipt.StructuredStats("filter", chain)
+	if err != nil {
+		t.Fatalf("StructuredStats failed: %v", err)
+	}
+
+	expectedStructStats := []Stat{
+		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet1, address1, ""},
+		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet2, address2, ""},
+		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet2, address1, ""},
+		{"0", "0", "ACCEPT", "all", opt, "*", "*", address1, subnet2, ""},
+	}
+
+	if !reflect.DeepEqual(structStats, expectedStructStats) {
+		t.Fatalf("StructuredStats mismatch: \ngot  %#v \nneed %#v",
+			structStats, expectedStructStats)
+	}
+
 	// Clear the chain that was created.
 	err = ipt.ClearChain("filter", chain)
 	if err != nil {
