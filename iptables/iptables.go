@@ -74,16 +74,16 @@ type IPTables struct {
 
 // Stat represents a structured statistic entry.
 type Stat struct {
-	Packets     string `json:"pkts"`
-	Bytes       string `json:"bytes"`
-	Target      string `json:"target"`
-	Protocol    string `json:"prot"`
-	Opt         string `json:"opt"`
-	Input       string `json:"in"`
-	Output      string `json:"out"`
-	Source      string `json:"source"`
-	Destination string `json:"destination"`
-	Options     string `json:"options"`
+	Packets     uint64     `json:"pkts"`
+	Bytes       uint64     `json:"bytes"`
+	Target      string     `json:"target"`
+	Protocol    string     `json:"prot"`
+	Opt         string     `json:"opt"`
+	Input       string     `json:"in"`
+	Output      string     `json:"out"`
+	Source      *net.IPNet `json:"source"`
+	Destination *net.IPNet `json:"destination"`
+	Options     string     `json:"options"`
 }
 
 // New creates a new IPTables.
@@ -277,6 +277,43 @@ func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 	return rows, nil
 }
 
+// ParseStat parses a single statistic row into a Stat struct. The input should
+// be a string slice that is returned from calling the Stat method.
+func (ipt *IPTables) ParseStat(stat []string) (parsed Stat, err error) {
+	// For forward-compatibility, expect at least 10 fields in the stat
+	if len(stat) < 10 {
+		return parsed, fmt.Errorf("stat contained fewer fields than expected")
+	}
+
+	// Convert the fields that are not plain strings
+	parsed.Packets, err = strconv.ParseUint(stat[0], 0, 64)
+	if err != nil {
+		return parsed, fmt.Errorf(err.Error(), "could not parse packets")
+	}
+	parsed.Bytes, err = strconv.ParseUint(stat[1], 0, 64)
+	if err != nil {
+		return parsed, fmt.Errorf(err.Error(), "could not parse bytes")
+	}
+	_, parsed.Source, err = net.ParseCIDR(stat[7])
+	if err != nil {
+		return parsed, fmt.Errorf(err.Error(), "could not parse source")
+	}
+	_, parsed.Destination, err = net.ParseCIDR(stat[8])
+	if err != nil {
+		return parsed, fmt.Errorf(err.Error(), "could not parse destination")
+	}
+
+	// Put the fields that are strings
+	parsed.Target = stat[2]
+	parsed.Protocol = stat[3]
+	parsed.Opt = stat[4]
+	parsed.Input = stat[5]
+	parsed.Output = stat[6]
+	parsed.Options = stat[9]
+
+	return parsed, nil
+}
+
 // StructuredStats returns statistics as structured data which may be further
 // parsed and marshaled.
 func (ipt *IPTables) StructuredStats(table, chain string) ([]Stat, error) {
@@ -287,14 +324,11 @@ func (ipt *IPTables) StructuredStats(table, chain string) ([]Stat, error) {
 
 	structStats := []Stat{}
 	for _, rawStat := range rawStats {
-		if len(rawStat) != 10 {
-			return nil, fmt.Errorf("raw stat contained unexpected fields")
+		stat, err := ipt.ParseStat(rawStat)
+		if err != nil {
+			return nil, err
 		}
-		structStat := Stat{
-			rawStat[0], rawStat[1], rawStat[2], rawStat[3], rawStat[4],
-			rawStat[5], rawStat[6], rawStat[7], rawStat[8], rawStat[9],
-		}
-		structStats = append(structStats, structStat)
+		structStats = append(structStats, stat)
 	}
 
 	return structStats, nil
