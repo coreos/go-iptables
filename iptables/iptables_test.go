@@ -418,6 +418,68 @@ func TestIsNotExist(t *testing.T) {
 	}
 }
 
+func TestIsNotExistForIPv6(t *testing.T) {
+	ipt, err := NewWithProtocol(ProtocolIPv6)
+	if err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+	// Create a chain, add a rule
+	chainName := randChain(t)
+	err = ipt.NewChain("filter", chainName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		ipt.ClearChain("filter", chainName)
+		ipt.DeleteChain("filter", chainName)
+	}()
+
+	err = ipt.Append("filter", chainName, "-p", "tcp", "-j", "DROP")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Delete rule twice
+	err = ipt.Delete("filter", chainName, "-p", "tcp", "-j", "DROP")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ipt.Delete("filter", chainName, "-p", "tcp", "-j", "DROP")
+	if err == nil {
+		t.Fatal("delete twice got no error...")
+	}
+
+	e, ok := err.(*Error)
+	if !ok {
+		t.Fatalf("Got wrong error type, expected iptables.Error, got %T", err)
+	}
+
+	if !e.IsNotExist() {
+		t.Fatal("IsNotExist returned false, expected true")
+	}
+
+	// Delete chain
+	err = ipt.DeleteChain("filter", chainName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = ipt.DeleteChain("filter", chainName)
+	if err == nil {
+		t.Fatal("deletechain twice got no error...")
+	}
+
+	e, ok = err.(*Error)
+	if !ok {
+		t.Fatalf("Got wrong error type, expected iptables.Error, got %T", err)
+	}
+
+	if !e.IsNotExist() {
+		t.Fatal("IsNotExist returned false, expected true")
+	}
+}
+
 func TestFilterRuleOutput(t *testing.T) {
 	testCases := []struct {
 		name string
