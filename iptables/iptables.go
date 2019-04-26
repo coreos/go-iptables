@@ -282,7 +282,7 @@ func (ipt *IPTables) executeList(args []string) ([]string, error) {
 		v := 1
 		return nil, &Error{
 			cmd:        exec.Cmd{Args: args},
-			msg:        "iptables: No chain/target/match by that name.",
+			msg:        "iptables: No chain/target/match by that name.\n",
 			exitStatus: &v,
 		}
 	}
