@@ -24,7 +24,7 @@ import (
 )
 
 func TestProto(t *testing.T) {
-	ipt, err := New()
+	ipt, err := New("")
 	if err != nil {
 		t.Fatalf("New failed: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestProto(t *testing.T) {
 		t.Fatalf("Expected default protocol IPv4, got %v", ipt.Proto())
 	}
 
-	ip4t, err := NewWithProtocol(ProtocolIPv4)
+	ip4t, err := NewWithProtocol(ProtocolIPv4, "")
 	if err != nil {
 		t.Fatalf("NewWithProtocol(ProtocolIPv4) failed: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestProto(t *testing.T) {
 		t.Fatalf("Expected protocol IPv4, got %v", ip4t.Proto())
 	}
 
-	ip6t, err := NewWithProtocol(ProtocolIPv6)
+	ip6t, err := NewWithProtocol(ProtocolIPv6, "")
 	if err != nil {
 		t.Fatalf("NewWithProtocol(ProtocolIPv6) failed: %v", err)
 	}
@@ -71,11 +71,11 @@ func contains(list []string, value string) bool {
 // features enabled & disabled, to test compatibility.
 // We used to test noWait as well, but that was removed as of iptables v1.6.0
 func mustTestableIptables() []*IPTables {
-	ipt, err := New()
+	ipt, err := New("")
 	if err != nil {
 		panic(fmt.Sprintf("New failed: %v", err))
 	}
-	ip6t, err := NewWithProtocol(ProtocolIPv6)
+	ip6t, err := NewWithProtocol(ProtocolIPv6, "")
 	if err != nil {
 		panic(fmt.Sprintf("NewWithProtocol(ProtocolIPv6) failed: %v", err))
 	}
@@ -322,7 +322,7 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 
 // TestError checks that we're OK when iptables fails to execute
 func TestError(t *testing.T) {
-	ipt, err := New()
+	ipt, err := New("")
 	if err != nil {
 		t.Fatalf("failed to init: %v", err)
 	}
@@ -357,7 +357,7 @@ func TestError(t *testing.T) {
 }
 
 func TestIsNotExist(t *testing.T) {
-	ipt, err := New()
+	ipt, err := New("")
 	if err != nil {
 		t.Fatalf("failed to init: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestIsNotExist(t *testing.T) {
 }
 
 func TestIsNotExistForIPv6(t *testing.T) {
-	ipt, err := NewWithProtocol(ProtocolIPv6)
+	ipt, err := NewWithProtocol(ProtocolIPv6, "")
 	if err != nil {
 		t.Fatalf("failed to init: %v", err)
 	}
