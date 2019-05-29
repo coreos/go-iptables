@@ -18,6 +18,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"reflect"
 	"testing"
@@ -305,6 +306,41 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 
 	if !reflect.DeepEqual(stats, expectedStats) {
 		t.Fatalf("Stats mismatch: \ngot  %#v \nneed %#v", stats, expectedStats)
+	}
+
+	structStats, err := ipt.StructuredStats("filter", chain)
+	if err != nil {
+		t.Fatalf("StructuredStats failed: %v", err)
+	}
+
+	// It's okay to not check the following errors as they will be evaluated
+	// in the subsequent usage
+	_, address1CIDR, _ := net.ParseCIDR(address1)
+	_, address2CIDR, _ := net.ParseCIDR(address2)
+	_, subnet1CIDR, _ := net.ParseCIDR(subnet1)
+	_, subnet2CIDR, _ := net.ParseCIDR(subnet2)
+
+	expectedStructStats := []Stat{
+		{0, 0, "ACCEPT", "all", opt, "*", "*", subnet1CIDR, address1CIDR, ""},
+		{0, 0, "ACCEPT", "all", opt, "*", "*", subnet2CIDR, address2CIDR, ""},
+		{0, 0, "ACCEPT", "all", opt, "*", "*", subnet2CIDR, address1CIDR, ""},
+		{0, 0, "ACCEPT", "all", opt, "*", "*", address1CIDR, subnet2CIDR, ""},
+	}
+
+	if !reflect.DeepEqual(structStats, expectedStructStats) {
+		t.Fatalf("StructuredStats mismatch: \ngot  %#v \nneed %#v",
+			structStats, expectedStructStats)
+	}
+
+	for i, stat := range expectedStats {
+		stat, err := ipt.ParseStat(stat)
+		if err != nil {
+			t.Fatalf("ParseStat failed: %v", err)
+		}
+		if !reflect.DeepEqual(stat, expectedStructStats[i]) {
+			t.Fatalf("ParseStat mismatch: \ngot  %#v \nneed %#v",
+				stat, expectedStructStats[i])
+		}
 	}
 
 	// Clear the chain that was created.
