@@ -62,15 +62,16 @@ const (
 )
 
 type IPTables struct {
-	path           string
-	proto          Protocol
-	hasCheck       bool
-	hasWait        bool
-	hasRandomFully bool
-	v1             int
-	v2             int
-	v3             int
-	mode           string // the underlying iptables operating mode, e.g. nf_tables
+	path                  string
+	proto                 Protocol
+	hasCheck              bool
+	hasWait               bool
+	hasRandomFully        bool
+	hasDifferentExistsErr bool
+	v1                    int
+	v2                    int
+	v3                    int
+	mode                  string // the underlying iptables operating mode, e.g. nf_tables
 }
 
 // Stat represents a structured statistic entry.
@@ -104,17 +105,19 @@ func NewWithProtocol(proto Protocol) (*IPTables, error) {
 	v1, v2, v3, mode, err := extractIptablesVersion(vstring)
 
 	checkPresent, waitPresent, randomFullyPresent := getIptablesCommandSupport(v1, v2, v3)
+	differentExistsErr := iptablesHasDifferentExistsErr(v1, v2, v3, mode)
 
 	ipt := IPTables{
-		path:           path,
-		proto:          proto,
-		hasCheck:       checkPresent,
-		hasWait:        waitPresent,
-		hasRandomFully: randomFullyPresent,
-		v1:             v1,
-		v2:             v2,
-		v3:             v3,
-		mode:           mode,
+		path:                  path,
+		proto:                 proto,
+		hasCheck:              checkPresent,
+		hasWait:               waitPresent,
+		hasRandomFully:        randomFullyPresent,
+		hasDifferentExistsErr: differentExistsErr,
+		v1:                    v1,
+		v2:                    v2,
+		v3:                    v3,
+		mode:                  mode,
 	}
 	return &ipt, nil
 }
@@ -379,9 +382,9 @@ func (ipt *IPTables) ClearChain(table, chain string) error {
 	err := ipt.NewChain(table, chain)
 
 	// the exit code for "this table already exists" is different for
-	// different iptables modes
+	// different iptables modes / versions
 	existsErr := 1
-	if ipt.mode == "nf_tables" {
+	if ipt.hasDifferentExistsErr {
 		existsErr = 4
 	}
 
@@ -565,6 +568,23 @@ func iptablesHasRandomFully(v1 int, v2 int, v3 int) bool {
 		return true
 	}
 	return false
+}
+
+// Checks if an iptables (with mode nf_tables) version is before 1.8.1, when it contained an alternative exit code
+func iptablesHasDifferentExistsErr(v1 int, v2 int, v3 int, mode string) bool {
+	if mode != "nf_tables" {
+		return false
+	}
+	if v1 > 1 {
+		return false
+	}
+	if v1 == 1 && v2 > 8 {
+		return false
+	}
+	if v1 == 1 && v2 == 8 && v3 >= 1 {
+		return false
+	}
+	return true
 }
 
 // Checks if a rule specification exists for a table
