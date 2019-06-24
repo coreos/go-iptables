@@ -373,17 +373,12 @@ func (ipt *IPTables) NewChain(table, chain string) error {
 	return ipt.run("-t", table, "-N", chain)
 }
 
+const existsErr = 1
+
 // ClearChain flushed (deletes all rules) in the specified table/chain.
 // If the chain does not exist, a new one will be created
 func (ipt *IPTables) ClearChain(table, chain string) error {
 	err := ipt.NewChain(table, chain)
-
-	// the exit code for "this table already exists" is different for
-	// different iptables modes
-	existsErr := 1
-	if ipt.mode == "nf_tables" {
-		existsErr = 4
-	}
 
 	eerr, eok := err.(*Error)
 	switch {
