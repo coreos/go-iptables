@@ -425,6 +425,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 		}
 		ul, err := fmu.tryLock()
 		if err != nil {
+			syscall.Close(fmu.fd)
 			return err
 		}
 		defer ul.Unlock()
