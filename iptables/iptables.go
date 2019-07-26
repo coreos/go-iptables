@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -98,7 +99,17 @@ func New() (*IPTables, error) {
 func NewWithProtocol(proto Protocol) (*IPTables, error) {
 	path, err := exec.LookPath(getIptablesCommand(proto))
 	if err != nil {
-		return nil, err
+		// Add /usr/sbin and /sbin to $PATH
+		env := os.Getenv("PATH")
+		if env != "" {
+			env = env + ":"
+		}
+		os.Setenv("PATH", env+"/usr/sbin:/sbin")
+		// Retry exec.LookPath()
+		path, err = exec.LookPath(getIptablesCommand(proto))
+		if err != nil {
+			return nil, err
+		}
 	}
 	vstring, err := getIptablesVersionString(path)
 	v1, v2, v3, mode, err := extractIptablesVersion(vstring)
