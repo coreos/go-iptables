@@ -465,7 +465,7 @@ func lookIptablesDefaultPath(command string) (string, error) {
 			return path, nil
 		}
 	}
-	return "", fmt.Errorf("no iptables binaries found in $PATH.")
+	return "", fmt.Errorf("no iptables binaries found in $PATH or default paths %v", IPTABLES_DEFAULT_PREFIXES)
 }
 
 // getIptablesCommand returns the correct command for the given protocol, either "iptables" or "ip6tables".
