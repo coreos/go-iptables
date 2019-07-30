@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -462,7 +461,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 func lookIptablesDefaultPath(command string) (string, error) {
 	for _, prefix := range IPTABLES_DEFAULT_PREFIXES {
 		path := filepath.Join(prefix, command)
-		if _, err := os.Stat(path); err == nil {
+		if _, err := exec.LookPath(path); err == nil {
 			return path, nil
 		}
 	}
