@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -460,7 +461,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 // lookIptablesDefaultPath searches the iptables binaries at the default paths.
 func lookIptablesDefaultPath(command string) (string, error) {
 	for _, prefix := range IPTABLES_DEFAULT_PREFIXES {
-		path := prefix + "/" + command
+		path := filepath.Join(prefix, command)
 		if _, err := os.Stat(path); err == nil {
 			return path, nil
 		}
