@@ -101,7 +101,13 @@ func NewWithProtocol(proto Protocol) (*IPTables, error) {
 		return nil, err
 	}
 	vstring, err := getIptablesVersionString(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not get iptables version: %v", err)
+	}
 	v1, v2, v3, mode, err := extractIptablesVersion(vstring)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract iptables version from [%s]: %v", vstring, err)
+	}
 
 	checkPresent, waitPresent, randomFullyPresent := getIptablesCommandSupport(v1, v2, v3)
 
