@@ -49,8 +49,8 @@ func (e *Error) Error() string {
 // IsNotExist returns true if the error is due to the chain or rule not existing
 func (e *Error) IsNotExist() bool {
 	return e.ExitStatus() == 1 &&
-		(e.msg == fmt.Sprintf("%s: Bad rule (does a matching rule exist in that chain?).\n", getIptablesCommand(e.proto)) ||
-			e.msg == fmt.Sprintf("%s: No chain/target/match by that name.\n", getIptablesCommand(e.proto)))
+		strings.Contains(e.msg, fmt.Sprintf("%s: Bad rule (does a matching rule exist in that chain?).\n", getIptablesCommand(e.proto))) ||
+		strings.Contains(e.msg, fmt.Sprintf("%s: No chain/target/match by that name.\n", getIptablesCommand(e.proto)))
 }
 
 // Protocol to differentiate between IPv4 and IPv6

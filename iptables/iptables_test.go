@@ -452,6 +452,13 @@ func TestIsNotExist(t *testing.T) {
 	if !e.IsNotExist() {
 		t.Fatal("IsNotExist returned false, expected true")
 	}
+
+	// iptables may add more logs to the errors msgs
+	e.msg = "Another app is currently holding the xtables lock; waiting (1s) for it to exit..." + e.msg
+	if !e.IsNotExist() {
+		t.Fatal("IsNotExist returned false, expected true")
+	}
+
 }
 
 func TestIsNotExistForIPv6(t *testing.T) {
@@ -511,6 +518,12 @@ func TestIsNotExistForIPv6(t *testing.T) {
 		t.Fatalf("Got wrong error type, expected iptables.Error, got %T", err)
 	}
 
+	if !e.IsNotExist() {
+		t.Fatal("IsNotExist returned false, expected true")
+	}
+
+	// iptables may add more logs to the errors msgs
+	e.msg = "Another app is currently holding the xtables lock; waiting (1s) for it to exit..." + e.msg
 	if !e.IsNotExist() {
 		t.Fatal("IsNotExist returned false, expected true")
 	}
