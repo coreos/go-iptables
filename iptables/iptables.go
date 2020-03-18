@@ -31,7 +31,6 @@ type Error struct {
 	exec.ExitError
 	cmd        exec.Cmd
 	msg        string
-	proto      Protocol
 	exitStatus *int //for overriding
 }
 
@@ -51,9 +50,8 @@ func (e *Error) IsNotExist() bool {
 	if e.ExitStatus() != 1 {
 		return false
 	}
-	cmdIptables := getIptablesCommand(e.proto)
-	msgNoRuleExist := fmt.Sprintf("%s: Bad rule (does a matching rule exist in that chain?).\n", cmdIptables)
-	msgNoChainExist := fmt.Sprintf("%s: No chain/target/match by that name.\n", cmdIptables)
+	msgNoRuleExist := "Bad rule (does a matching rule exist in that chain?).\n"
+	msgNoChainExist := "No chain/target/match by that name.\n"
 	return strings.Contains(e.msg, msgNoRuleExist) || strings.Contains(e.msg, msgNoChainExist)
 }
 
@@ -452,7 +450,7 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	if err := cmd.Run(); err != nil {
 		switch e := err.(type) {
 		case *exec.ExitError:
-			return &Error{*e, cmd, stderr.String(), ipt.proto, nil}
+			return &Error{*e, cmd, stderr.String(), nil}
 		default:
 			return err
 		}
