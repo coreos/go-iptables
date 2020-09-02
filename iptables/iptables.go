@@ -422,6 +422,18 @@ func (ipt *IPTables) DeleteChain(table, chain string) error {
 	return ipt.run("-t", table, "-X", chain)
 }
 
+func (ipt *IPTables) ClearAndDeleteChain(table, chain string) error {
+	exists, err := ipt.ChainExists(table, chain)
+	if err != nil || !exists {
+		return err
+	}
+	err = ipt.run("-t", table, "-F", chain)
+	if err == nil {
+		err = ipt.run("-t", table, "-X", chain)
+	}
+	return err
+}
+
 // ChangePolicy changes policy on chain to target
 func (ipt *IPTables) ChangePolicy(table, chain, target string) error {
 	return ipt.run("-t", table, "-P", chain, target)

@@ -195,6 +195,31 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 	} else if exists {
 		t.Fatalf("ChainExists finds non-existing chain")
 	}
+
+	// test ClearAndDelete
+	err = ipt.NewChain("filter", chain)
+	if err != nil {
+		t.Fatalf("NewChain failed: %v", err)
+	}
+	err = ipt.Append("filter", chain, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+	err = ipt.ClearAndDeleteChain("filter", chain)
+	if err != nil {
+		t.Fatalf("ClearAndDelete failed: %v", err)
+	}
+	exists, err = ipt.ChainExists("filter", chain)
+	if err != nil {
+		t.Fatalf("ChainExists failed: %v", err)
+	}
+	if exists {
+		t.Fatalf("ClearAndDelete didn't delete the chain")
+	}
+	err = ipt.ClearAndDeleteChain("filter", chain)
+	if err != nil {
+		t.Fatalf("ClearAndDelete failed for non-existing chain: %v", err)
+	}
 }
 
 func TestRules(t *testing.T) {
