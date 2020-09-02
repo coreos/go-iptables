@@ -343,6 +343,15 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		}
 	}
 
+	err = ipt.DeleteIfExists("filter", chain, "-s", address1, "-d", subnet2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("DeleteIfExists failed for existing rule: %v", err)
+	}
+	err = ipt.DeleteIfExists("filter", chain, "-s", address1, "-d", subnet2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("DeleteIfExists failed for non-existing rule: %v", err)
+	}
+
 	// Clear the chain that was created.
 	err = ipt.ClearChain("filter", chain)
 	if err != nil {

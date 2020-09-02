@@ -183,6 +183,14 @@ func (ipt *IPTables) Delete(table, chain string, rulespec ...string) error {
 	return ipt.run(cmd...)
 }
 
+func (ipt *IPTables) DeleteIfExists(table, chain string, rulespec ...string) error {
+	exists, err := ipt.Exists(table, chain, rulespec...)
+	if err == nil && exists {
+		err = ipt.Delete(table, chain, rulespec...)
+	}
+	return err
+}
+
 // List rules in specified table/chain
 func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	args := []string{"-t", table, "-S", chain}
