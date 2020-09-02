@@ -228,6 +228,21 @@ func (ipt *IPTables) ListChains(table string) ([]string, error) {
 	return chains, nil
 }
 
+// '-S' is fine with non existing rule index as long as the chain exists
+// therefore pass index 1 to reduce overhead for large chains
+func (ipt *IPTables) ChainExists(table, chain string) (bool, error) {
+	err := ipt.run("-t", table, "-S", chain, "1")
+	eerr, eok := err.(*Error)
+	switch {
+	case err == nil:
+		return true, nil
+	case eok && eerr.ExitStatus() == 1:
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
 // Stats lists rules including the byte and packet counts
 func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 	args := []string{"-t", table, "-L", chain, "-n", "-v", "-x"}

@@ -131,6 +131,14 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("ListChains doesn't contain the new chain %v", chain)
 	}
 
+	// ChainExists should find it, too
+	exists, err := ipt.ChainExists("filter", chain)
+	if err != nil {
+		t.Fatalf("ChainExists for existing chain failed: %v", err)
+	} else if !exists {
+		t.Fatalf("ChainExists doesn't find existing chain")
+	}
+
 	// chain now exists
 	err = ipt.ClearChain("filter", chain)
 	if err != nil {
@@ -178,6 +186,14 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 	}
 	if !reflect.DeepEqual(originaListChain, listChain) {
 		t.Fatalf("ListChains mismatch: \ngot  %#v \nneed %#v", originaListChain, listChain)
+	}
+
+	// ChainExists must not find it anymore
+	exists, err = ipt.ChainExists("filter", chain)
+	if err != nil {
+		t.Fatalf("ChainExists for non-existing chain failed: %v", err)
+	} else if exists {
+		t.Fatalf("ChainExists finds non-existing chain")
 	}
 }
 
