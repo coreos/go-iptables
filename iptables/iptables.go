@@ -183,6 +183,14 @@ func (ipt *IPTables) Delete(table, chain string, rulespec ...string) error {
 	return ipt.run(cmd...)
 }
 
+func (ipt *IPTables) DeleteIfExists(table, chain string, rulespec ...string) error {
+	exists, err := ipt.Exists(table, chain, rulespec...)
+	if err == nil && exists {
+		err = ipt.Delete(table, chain, rulespec...)
+	}
+	return err
+}
+
 // List rules in specified table/chain
 func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	args := []string{"-t", table, "-S", chain}
@@ -218,6 +226,21 @@ func (ipt *IPTables) ListChains(table string) ([]string, error) {
 		}
 	}
 	return chains, nil
+}
+
+// '-S' is fine with non existing rule index as long as the chain exists
+// therefore pass index 1 to reduce overhead for large chains
+func (ipt *IPTables) ChainExists(table, chain string) (bool, error) {
+	err := ipt.run("-t", table, "-S", chain, "1")
+	eerr, eok := err.(*Error)
+	switch {
+	case err == nil:
+		return true, nil
+	case eok && eerr.ExitStatus() == 1:
+		return false, nil
+	default:
+		return false, err
+	}
 }
 
 // Stats lists rules including the byte and packet counts
@@ -397,6 +420,18 @@ func (ipt *IPTables) RenameChain(table, oldChain, newChain string) error {
 // The chain must be empty
 func (ipt *IPTables) DeleteChain(table, chain string) error {
 	return ipt.run("-t", table, "-X", chain)
+}
+
+func (ipt *IPTables) ClearAndDeleteChain(table, chain string) error {
+	exists, err := ipt.ChainExists(table, chain)
+	if err != nil || !exists {
+		return err
+	}
+	err = ipt.run("-t", table, "-F", chain)
+	if err == nil {
+		err = ipt.run("-t", table, "-X", chain)
+	}
+	return err
 }
 
 // ChangePolicy changes policy on chain to target

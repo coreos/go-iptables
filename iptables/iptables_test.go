@@ -131,6 +131,14 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("ListChains doesn't contain the new chain %v", chain)
 	}
 
+	// ChainExists should find it, too
+	exists, err := ipt.ChainExists("filter", chain)
+	if err != nil {
+		t.Fatalf("ChainExists for existing chain failed: %v", err)
+	} else if !exists {
+		t.Fatalf("ChainExists doesn't find existing chain")
+	}
+
 	// chain now exists
 	err = ipt.ClearChain("filter", chain)
 	if err != nil {
@@ -178,6 +186,39 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 	}
 	if !reflect.DeepEqual(originaListChain, listChain) {
 		t.Fatalf("ListChains mismatch: \ngot  %#v \nneed %#v", originaListChain, listChain)
+	}
+
+	// ChainExists must not find it anymore
+	exists, err = ipt.ChainExists("filter", chain)
+	if err != nil {
+		t.Fatalf("ChainExists for non-existing chain failed: %v", err)
+	} else if exists {
+		t.Fatalf("ChainExists finds non-existing chain")
+	}
+
+	// test ClearAndDelete
+	err = ipt.NewChain("filter", chain)
+	if err != nil {
+		t.Fatalf("NewChain failed: %v", err)
+	}
+	err = ipt.Append("filter", chain, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+	err = ipt.ClearAndDeleteChain("filter", chain)
+	if err != nil {
+		t.Fatalf("ClearAndDelete failed: %v", err)
+	}
+	exists, err = ipt.ChainExists("filter", chain)
+	if err != nil {
+		t.Fatalf("ChainExists failed: %v", err)
+	}
+	if exists {
+		t.Fatalf("ClearAndDelete didn't delete the chain")
+	}
+	err = ipt.ClearAndDeleteChain("filter", chain)
+	if err != nil {
+		t.Fatalf("ClearAndDelete failed for non-existing chain: %v", err)
 	}
 }
 
@@ -341,6 +382,15 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 			t.Fatalf("ParseStat mismatch: \ngot  %#v \nneed %#v",
 				stat, expectedStructStats[i])
 		}
+	}
+
+	err = ipt.DeleteIfExists("filter", chain, "-s", address1, "-d", subnet2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("DeleteIfExists failed for existing rule: %v", err)
+	}
+	err = ipt.DeleteIfExists("filter", chain, "-s", address1, "-d", subnet2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("DeleteIfExists failed for non-existing rule: %v", err)
 	}
 
 	// Clear the chain that was created.
