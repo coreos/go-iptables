@@ -50,6 +50,25 @@ func TestProto(t *testing.T) {
 	}
 }
 
+func TestTimeout(t *testing.T) {
+	ipt, err := New()
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+	if ipt.timeout != 0 {
+		t.Fatalf("Expected timeout 0 (wait forever), got %v", ipt.timeout)
+	}
+
+	ipt2, err := New(Timeout(5))
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+	if ipt2.timeout != 5 {
+		t.Fatalf("Expected timeout 5, got %v", ipt.timeout)
+	}
+
+}
+
 func randChain(t *testing.T) string {
 	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
