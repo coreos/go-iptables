@@ -460,6 +460,14 @@ func (ipt *IPTables) ClearAndDeleteChain(table, chain string) error {
 	return err
 }
 
+func (ipt *IPTables) ClearAll() error {
+	return ipt.run("-F")
+}
+
+func (ipt *IPTables) DeleteAll() error {
+	return ipt.run("-X")
+}
+
 // ChangePolicy changes policy on chain to target
 func (ipt *IPTables) ChangePolicy(table, chain, target string) error {
 	return ipt.run("-t", table, "-P", chain, target)
