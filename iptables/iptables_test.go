@@ -298,6 +298,11 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("Insert failed: %v", err)
 	}
 
+	err = ipt.Replace("filter", chain, 1, "-s", address2, "-d", address2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Replace failed: %v", err)
+	}
+
 	err = ipt.Delete("filter", chain, "-s", subnet1, "-d", address2, "-j", "ACCEPT")
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
