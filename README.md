@@ -1,7 +1,7 @@
 # go-iptables
 
 [![GoDoc](https://godoc.org/github.com/coreos/go-iptables/iptables?status.svg)](https://godoc.org/github.com/coreos/go-iptables/iptables)
-[![Build Status](https://travis-ci.org/coreos/go-iptables.png?branch=master)](https://travis-ci.org/coreos/go-iptables)
+[![Build status](https://github.com/coreos/go-iptables/actions/workflows/go.yml/badge.svg)](https://github.com/coreos/go-iptables/actions/workflows/go.yml)
 
 Go bindings for iptables utility.
 
