@@ -510,7 +510,9 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 			syscall.Close(fmu.fd)
 			return err
 		}
-		defer ul.Unlock()
+		defer func() {
+			_ = ul.Unlock()
+		}()
 	}
 
 	var stderr bytes.Buffer

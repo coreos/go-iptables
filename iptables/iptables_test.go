@@ -473,8 +473,12 @@ func TestIsNotExist(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		ipt.ClearChain("filter", chainName)
-		ipt.DeleteChain("filter", chainName)
+		if err := ipt.ClearChain("filter", chainName); err != nil {
+			t.Fatal(err)
+		}
+		if err := ipt.DeleteChain("filter", chainName); err != nil {
+			t.Fatal(err)
+		}
 	}()
 
 	err = ipt.Append("filter", chainName, "-p", "tcp", "-j", "DROP")
@@ -542,8 +546,12 @@ func TestIsNotExistForIPv6(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		ipt.ClearChain("filter", chainName)
-		ipt.DeleteChain("filter", chainName)
+		if err := ipt.ClearChain("filter", chainName); err != nil {
+			t.Fatal(err)
+		}
+		if err := ipt.DeleteChain("filter", chainName); err != nil {
+			t.Fatal(err)
+		}
 	}()
 
 	err = ipt.Append("filter", chainName, "-p", "tcp", "-j", "DROP")
