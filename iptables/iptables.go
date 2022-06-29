@@ -20,11 +20,14 @@ import (
 	"io"
 	"net"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 )
+
+var IPTABLES_DEFAULT_PREFIXES = []string{"/usr/sbin", "/sbin"}
 
 // Adds the output of stderr to exec.ExitError
 type Error struct {
@@ -123,7 +126,10 @@ func New(opts ...option) (*IPTables, error) {
 
 	path, err := exec.LookPath(getIptablesCommand(ipt.proto))
 	if err != nil {
-		return nil, err
+		path, err = lookIptablesDefaultPath(getIptablesCommand(proto))
+		if err != nil {
+			return nil, err
+		}
 	}
 	ipt.path = path
 
@@ -533,6 +539,17 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	}
 
 	return nil
+}
+
+// lookIptablesDefaultPath searches the iptables binaries at the default paths.
+func lookIptablesDefaultPath(command string) (string, error) {
+	for _, prefix := range IPTABLES_DEFAULT_PREFIXES {
+		path := filepath.Join(prefix, command)
+		if _, err := exec.LookPath(path); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("no iptables binaries found in $PATH or default paths %v", IPTABLES_DEFAULT_PREFIXES)
 }
 
 // getIptablesCommand returns the correct command for the given protocol, either "iptables" or "ip6tables".
