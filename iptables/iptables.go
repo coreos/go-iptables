@@ -221,6 +221,16 @@ func (ipt *IPTables) DeleteIfExists(table, chain string, rulespec ...string) err
 }
 
 // List rules in specified table/chain
+func (ipt *IPTables) ListById(table, chain string, id int) (string, error) {
+	args := []string{"-t", table, "-S", chain, strconv.Itoa(id)}
+	rule, err := ipt.executeList(args)
+	if err != nil {
+		return "", err
+	}
+	return rule[0], nil
+}
+
+// List rules in specified table/chain
 func (ipt *IPTables) List(table, chain string) ([]string, error) {
 	args := []string{"-t", table, "-S", chain}
 	return ipt.executeList(args)
