@@ -293,6 +293,11 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("Insert failed: %v", err)
 	}
 
+	err = ipt.InsertUnique("filter", chain, 2, "-s", subnet2, "-d", address2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Insert failed: %v", err)
+	}
+
 	err = ipt.Insert("filter", chain, 1, "-s", subnet1, "-d", address2, "-j", "ACCEPT")
 	if err != nil {
 		t.Fatalf("Insert failed: %v", err)
