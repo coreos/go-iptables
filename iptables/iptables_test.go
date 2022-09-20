@@ -353,6 +353,22 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("ListWithCounters mismatch: \ngot  %#v \nneed %#v", rules, expected)
 	}
 
+	rules, err = ipt.ListRulesWithCounters("filter")
+	if err != nil {
+		t.Fatalf("ListRulesWithCounters failed: %v", err)
+	}
+
+	var chainRules []string
+	for _, ruleAfter := range rules {
+		if strings.Contains(ruleAfter, chain) {
+			chainRules = append(chainRules, ruleAfter)
+		}
+	}
+
+	if !reflect.DeepEqual(chainRules, expected) {
+		t.Fatalf("ListRulesWithCounters mismatch: \ngot  %#v \nneed %#v", chainRules, expected)
+	}
+
 	stats, err := ipt.Stats("filter", chain)
 	if err != nil {
 		t.Fatalf("Stats failed: %v", err)
