@@ -296,6 +296,30 @@ func (ipt *IPTables) ChainExists(table, chain string) (bool, error) {
 	}
 }
 
+// ChainsPolicies returns a slice containing a struct with the name and the default policy of each chain in the specified table.
+func (ipt *IPTables) ChainsPolicies(table string) (map[string]string, error) {
+	ret := make(map[string]string)
+	args := []string{"-t", table, "-S"}
+
+	result, err := ipt.executeList(args)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate over rules to find all default (-P)
+	// Chains definition always come before rules.
+	// Format is the following:
+	// -P OUTPUT ACCEPT
+	for _, val := range result {
+		if strings.HasPrefix(val, "-P") {
+			ret[strings.Fields(val)[1]] = strings.Fields(val)[2]
+		} else {
+			break
+		}
+	}
+	return ret, nil
+}
+
 // Stats lists rules including the byte and packet counts
 func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 	args := []string{"-t", table, "-L", chain, "-n", "-v", "-x"}
