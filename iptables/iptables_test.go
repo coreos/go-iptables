@@ -336,21 +336,19 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("ListWithCounters failed: %v", err)
 	}
 
-	suffix := " -c 0 0 -j ACCEPT"
-	if ipt.mode == "nf_tables" {
-		suffix = " -j ACCEPT -c 0 0"
+	makeExpected := func(suffix string) []string {
+		return []string{
+			"-N " + chain,
+			"-A " + chain + " -s " + subnet1 + " -d " + address1 + " " + suffix,
+			"-A " + chain + " -s " + subnet2 + " -d " + address2 + " " + suffix,
+			"-A " + chain + " -s " + subnet2 + " -d " + address1 + " " + suffix,
+			"-A " + chain + " -s " + address1 + " -d " + subnet2 + " " + suffix,
+		}
 	}
-
-	expected = []string{
-		"-N " + chain,
-		"-A " + chain + " -s " + subnet1 + " -d " + address1 + suffix,
-		"-A " + chain + " -s " + subnet2 + " -d " + address2 + suffix,
-		"-A " + chain + " -s " + subnet2 + " -d " + address1 + suffix,
-		"-A " + chain + " -s " + address1 + " -d " + subnet2 + suffix,
-	}
-
-	if !reflect.DeepEqual(rules, expected) {
-		t.Fatalf("ListWithCounters mismatch: \ngot  %#v \nneed %#v", rules, expected)
+	// older nf_tables returned the second order
+	if !reflect.DeepEqual(rules, makeExpected("-c 0 0 -j ACCEPT")) &&
+		!reflect.DeepEqual(rules, makeExpected("-j ACCEPT -c 0 0")) {
+		t.Fatalf("ListWithCounters mismatch: \ngot  %#v \nneed %#v", rules, makeExpected("<-c 0 0 and -j ACCEPT in either order>"))
 	}
 
 	stats, err := ipt.Stats("filter", chain)
