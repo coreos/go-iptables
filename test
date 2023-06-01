@@ -47,7 +47,7 @@ TEST=${split[@]/#/${REPO_PATH}/}
 echo "Running tests..."
 bin=$(mktemp)
 
-go test -c -o ${bin} ${COVER} -i ${TEST}
+go test -c -o ${bin} ${COVER} ${TEST}
 if [[ -z "$SUDO_PERMITTED" ]]; then
     echo "Test aborted for safety reasons. Please set the SUDO_PERMITTED variable."
     exit 1
