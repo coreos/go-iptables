@@ -131,7 +131,7 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 	chain := randChain(t)
 
 	// Saving the list of chains before executing tests
-	originaListChain, err := ipt.ListChains("filter")
+	originalListChain, err := ipt.ListChains("filter")
 	if err != nil {
 		t.Fatalf("ListChains of Initial failed: %v", err)
 	}
@@ -204,8 +204,8 @@ func runChainTests(t *testing.T, ipt *IPTables) {
 	if err != nil {
 		t.Fatalf("ListChains failed: %v", err)
 	}
-	if !reflect.DeepEqual(originaListChain, listChain) {
-		t.Fatalf("ListChains mismatch: \ngot  %#v \nneed %#v", originaListChain, listChain)
+	if !reflect.DeepEqual(originalListChain, listChain) {
+		t.Fatalf("ListChains mismatch: \ngot  %#v \nneed %#v", originalListChain, listChain)
 	}
 
 	// ChainExists must not find it anymore
