@@ -186,6 +186,12 @@ func (ipt *IPTables) Insert(table, chain string, pos int, rulespec ...string) er
 	return ipt.run(cmd...)
 }
 
+// Replace replaces rulespec to specified table/chain (in specified pos)
+func (ipt *IPTables) Replace(table, chain string, pos int, rulespec ...string) error {
+	cmd := append([]string{"-t", table, "-R", chain, strconv.Itoa(pos)}, rulespec...)
+	return ipt.run(cmd...)
+}
+
 // InsertUnique acts like Insert except that it won't insert a duplicate (no matter the position in the chain)
 func (ipt *IPTables) InsertUnique(table, chain string, pos int, rulespec ...string) error {
 	exists, err := ipt.Exists(table, chain, rulespec...)
