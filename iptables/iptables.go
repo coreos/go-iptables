@@ -52,7 +52,8 @@ func (e *Error) IsNotExist() bool {
 	}
 	msgNoRuleExist := "Bad rule (does a matching rule exist in that chain?).\n"
 	msgNoChainExist := "No chain/target/match by that name.\n"
-	return strings.Contains(e.msg, msgNoRuleExist) || strings.Contains(e.msg, msgNoChainExist)
+	msgENOENT := "No such file or directory"
+	return strings.Contains(e.msg, msgNoRuleExist) || strings.Contains(e.msg, msgNoChainExist) || strings.Contains(e.msg, msgENOENT)
 }
 
 // Protocol to differentiate between IPv4 and IPv6
