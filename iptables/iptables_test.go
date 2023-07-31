@@ -309,6 +309,21 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
+	err = ipt.Insert("filter", chain, 1, "-s", subnet1, "-d", address2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Insert failed: %v", err)
+	}
+
+	err = ipt.Replace("filter", chain, 1, "-s", subnet2, "-d", address2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Replace failed: %v", err)
+	}
+
+	err = ipt.Delete("filter", chain, "-s", subnet2, "-d", address2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
 	err = ipt.Append("filter", chain, "-s", address1, "-d", subnet2, "-j", "ACCEPT")
 	if err != nil {
 		t.Fatalf("Append failed: %v", err)
