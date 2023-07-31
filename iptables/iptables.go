@@ -317,6 +317,11 @@ func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 
 	ipv6 := ipt.proto == ProtocolIPv6
 
+	// Skip the warning if exist
+	if strings.HasPrefix(lines[0], "#") {
+		lines = lines[1:]
+	}
+
 	rows := [][]string{}
 	for i, line := range lines {
 		// Skip over chain name and field header
