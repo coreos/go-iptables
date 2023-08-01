@@ -45,15 +45,21 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("running %v: exit status %v: %v", e.cmd.Args, e.ExitStatus(), e.msg)
 }
 
+var isNotExistPatterns = []string{
+	"Bad rule (does a matching rule exist in that chain?).\n",
+	"No chain/target/match by that name.\n",
+	"No such file or directory",
+	"does not exist",
+}
+
 // IsNotExist returns true if the error is due to the chain or rule not existing
 func (e *Error) IsNotExist() bool {
-	if e.ExitStatus() != 1 {
-		return false
+	for _, str := range isNotExistPatterns {
+		if strings.Contains(e.msg, str) {
+			return true
+		}
 	}
-	msgNoRuleExist := "Bad rule (does a matching rule exist in that chain?).\n"
-	msgNoChainExist := "No chain/target/match by that name.\n"
-	msgENOENT := "No such file or directory"
-	return strings.Contains(e.msg, msgNoRuleExist) || strings.Contains(e.msg, msgNoChainExist) || strings.Contains(e.msg, msgENOENT)
+	return false
 }
 
 // Protocol to differentiate between IPv4 and IPv6
