@@ -64,6 +64,18 @@ const (
 	ProtocolIPv6
 )
 
+// Mode to differentiate between legacy and nf_tables
+type ModeType string
+
+const (
+	// ModeTypeAuto is the default mode, which uses the system default
+	ModeTypeAuto ModeType = "auto"
+	// ModeTypeLegacy forces the use of the legacy iptables mode
+	ModeTypeLegacy ModeType = "legacy"
+	// ModeTypeNFTables forces the use of the nf_tables iptables mode
+	ModeTypeNFTables ModeType = "nf_tables"
+)
+
 type IPTables struct {
 	path              string
 	proto             Protocol
@@ -74,8 +86,8 @@ type IPTables struct {
 	v1                int
 	v2                int
 	v3                int
-	mode              string // the underlying iptables operating mode, e.g. nf_tables
-	timeout           int    // time to wait for the iptables lock, default waits forever
+	mode              ModeType // the underlying iptables operating mode, e.g. nf_tables
+	timeout           int      // time to wait for the iptables lock, default waits forever
 }
 
 // Stat represents a structured statistic entry.
@@ -106,6 +118,12 @@ func Timeout(timeout int) option {
 	}
 }
 
+func Mode(mode ModeType) option {
+	return func(ipt *IPTables) {
+		ipt.mode = mode
+	}
+}
+
 // New creates a new IPTables configured with the options passed as parameter.
 // For backwards compatibility, by default always uses IPv4 and timeout 0.
 // i.e. you can create an IPv6 IPTables using a timeout of 5 seconds passing
@@ -116,6 +134,7 @@ func New(opts ...option) (*IPTables, error) {
 
 	ipt := &IPTables{
 		proto:   ProtocolIPv4,
+		mode:    ModeTypeAuto,
 		timeout: 0,
 	}
 
@@ -123,7 +142,7 @@ func New(opts ...option) (*IPTables, error) {
 		opt(ipt)
 	}
 
-	path, err := exec.LookPath(getIptablesCommand(ipt.proto))
+	path, err := exec.LookPath(getIptablesCommand(ipt.proto, ipt.mode))
 	if err != nil {
 		return nil, err
 	}
@@ -133,14 +152,13 @@ func New(opts ...option) (*IPTables, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get iptables version: %v", err)
 	}
-	v1, v2, v3, mode, err := extractIptablesVersion(vstring)
+	v1, v2, v3, _, err := extractIptablesVersion(vstring)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract iptables version from [%s]: %v", vstring, err)
 	}
 	ipt.v1 = v1
 	ipt.v2 = v2
 	ipt.v3 = v3
-	ipt.mode = mode
 
 	checkPresent, waitPresent, waitSupportSecond, randomFullyPresent := getIptablesCommandSupport(v1, v2, v3)
 	ipt.hasCheck = checkPresent
@@ -518,8 +536,8 @@ func (ipt *IPTables) HasRandomFully() bool {
 }
 
 // Return version components of the underlying iptables command
-func (ipt *IPTables) GetIptablesVersion() (int, int, int) {
-	return ipt.v1, ipt.v2, ipt.v3
+func (ipt *IPTables) GetIptablesVersion() (int, int, int, ModeType) {
+	return ipt.v1, ipt.v2, ipt.v3, ipt.mode
 }
 
 // run runs an iptables command with the given arguments, ignoring
@@ -573,12 +591,23 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 }
 
 // getIptablesCommand returns the correct command for the given protocol, either "iptables" or "ip6tables".
-func getIptablesCommand(proto Protocol) string {
-	if proto == ProtocolIPv6 {
-		return "ip6tables"
-	} else {
-		return "iptables"
+func getIptablesCommand(proto Protocol, mode ModeType) string {
+	var cmd string
+	switch proto {
+	case ProtocolIPv4:
+		cmd = "iptables"
+	case ProtocolIPv6:
+		cmd = "ip6tables"
 	}
+	// Append a suffix to the command to get the correct binary,
+	// If the mode is auto (default), the suffix is not applied and the system default is used.
+	switch mode {
+	case ModeTypeNFTables:
+		cmd = fmt.Sprintf("%s-nft", cmd)
+	case ModeTypeLegacy:
+		cmd = fmt.Sprintf("%s-legacy", cmd)
+	}
+	return cmd
 }
 
 // Checks if iptables has the "-C" and "--wait" flag
@@ -589,7 +618,7 @@ func getIptablesCommandSupport(v1 int, v2 int, v3 int) (bool, bool, bool, bool) 
 // getIptablesVersion returns the first three components of the iptables version
 // and the operating mode (e.g. nf_tables or legacy)
 // e.g. "iptables v1.3.66" would return (1, 3, 66, legacy, nil)
-func extractIptablesVersion(str string) (int, int, int, string, error) {
+func extractIptablesVersion(str string) (int, int, int, ModeType, error) {
 	versionMatcher := regexp.MustCompile(`v([0-9]+)\.([0-9]+)\.([0-9]+)(?:\s+\((\w+))?`)
 	result := versionMatcher.FindStringSubmatch(str)
 	if result == nil {
@@ -611,9 +640,9 @@ func extractIptablesVersion(str string) (int, int, int, string, error) {
 		return 0, 0, 0, "", err
 	}
 
-	mode := "legacy"
+	mode := ModeTypeLegacy
 	if result[4] != "" {
-		mode = result[4]
+		mode = ModeType(result[4])
 	}
 	return v1, v2, v3, mode, nil
 }

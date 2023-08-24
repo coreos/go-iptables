@@ -25,6 +25,23 @@ import (
 	"testing"
 )
 
+var (
+	protos = []Protocol{ProtocolIPv4, ProtocolIPv6}
+	modes  = []ModeType{ModeTypeAuto, ModeTypeLegacy, ModeTypeNFTables}
+)
+
+// getProtoName returns the name of the protocol, for use in test names.
+func getProtoName(proto Protocol) string {
+	switch proto {
+	case ProtocolIPv4:
+		return "IPv4"
+	case ProtocolIPv6:
+		return "IPv6"
+	default:
+		panic("unknown protocol")
+	}
+}
+
 func TestProto(t *testing.T) {
 	ipt, err := New()
 	if err != nil {
@@ -34,40 +51,72 @@ func TestProto(t *testing.T) {
 		t.Fatalf("Expected default protocol IPv4, got %v", ipt.Proto())
 	}
 
-	ip4t, err := NewWithProtocol(ProtocolIPv4)
-	if err != nil {
-		t.Fatalf("NewWithProtocol(ProtocolIPv4) failed: %v", err)
-	}
-	if ip4t.Proto() != ProtocolIPv4 {
-		t.Fatalf("Expected protocol IPv4, got %v", ip4t.Proto())
+	for _, proto := range protos {
+		protoName := getProtoName(proto)
+		ipt, err := New(IPFamily(proto))
+		if err != nil {
+			t.Fatalf("NewWithProtocol(%s) failed: %v", protoName, err)
+		}
+		if ipt.Proto() != proto {
+			t.Fatalf("Expected protocol %s, got %v", protoName, ipt.Proto())
+		}
+		if ipt.mode != ModeTypeAuto {
+			t.Fatalf("Expected mode auto, got %v", ipt.mode)
+		}
 	}
 
-	ip6t, err := NewWithProtocol(ProtocolIPv6)
-	if err != nil {
-		t.Fatalf("NewWithProtocol(ProtocolIPv6) failed: %v", err)
-	}
-	if ip6t.Proto() != ProtocolIPv6 {
-		t.Fatalf("Expected protocol IPv6, got %v", ip6t.Proto())
+	for _, proto := range protos {
+		for _, mode := range modes {
+			protoName := getProtoName(proto)
+			ipt, err := New(Mode(mode), IPFamily(proto))
+			if err != nil {
+				t.Fatalf("New(Mode(%v), IPFamily(%v)) failed: %v", mode, protoName, err)
+			}
+			if ipt.Proto() != proto {
+				t.Fatalf("Expected protocol %v, got %v", protoName, ipt.Proto())
+			}
+			if ipt.mode != mode {
+				t.Fatalf("Expected mode %v, got %v", mode, ipt.mode)
+			}
+		}
 	}
 }
 
 func TestTimeout(t *testing.T) {
-	ipt, err := New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
-	if ipt.timeout != 0 {
-		t.Fatalf("Expected timeout 0 (wait forever), got %v", ipt.timeout)
-	}
+	for _, proto := range protos {
+		for _, mode := range modes {
+			ipt, err := New(IPFamily(proto), Mode(mode))
+			if err != nil {
+				t.Fatalf("New failed: %v", err)
+			}
+			if ipt.timeout != 0 {
+				t.Fatalf("Expected timeout 0 (wait forever), got %v", ipt.timeout)
+			}
 
-	ipt2, err := New(Timeout(5))
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
+			ipt2, err := New(Timeout(5))
+			if err != nil {
+				t.Fatalf("New failed: %v", err)
+			}
+			if ipt2.timeout != 5 {
+				t.Fatalf("Expected timeout 5, got %v", ipt.timeout)
+			}
+		}
 	}
-	if ipt2.timeout != 5 {
-		t.Fatalf("Expected timeout 5, got %v", ipt.timeout)
-	}
+}
 
+func TestGetIptablesVersionMode(t *testing.T) {
+	for _, proto := range protos {
+		for _, mode := range modes {
+			ipt, err := New(IPFamily(proto), Mode(mode))
+			if err != nil {
+				t.Fatalf("New failed: %v", err)
+			}
+			_, _, _, getmode := ipt.GetIptablesVersion()
+			if getmode != mode {
+				t.Fatalf("Expected mode %v, got %v", mode, mode)
+			}
+		}
+	}
 }
 
 func randChain(t *testing.T) string {
@@ -92,27 +141,20 @@ func contains(list []string, value string) bool {
 // features enabled & disabled, to test compatibility.
 // We used to test noWait as well, but that was removed as of iptables v1.6.0
 func mustTestableIptables() []*IPTables {
-	ipt, err := New()
-	if err != nil {
-		panic(fmt.Sprintf("New failed: %v", err))
-	}
-	ip6t, err := NewWithProtocol(ProtocolIPv6)
-	if err != nil {
-		panic(fmt.Sprintf("NewWithProtocol(ProtocolIPv6) failed: %v", err))
-	}
-	ipts := []*IPTables{ipt, ip6t}
-
-	// ensure we check one variant without built-in checking
-	if ipt.hasCheck {
-		i := *ipt
-		i.hasCheck = false
-		ipts = append(ipts, &i)
-
-		i6 := *ip6t
-		i6.hasCheck = false
-		ipts = append(ipts, &i6)
-	} else {
-		panic("iptables on this machine is too old -- missing -C")
+	ipts := []*IPTables{}
+	for _, proto := range protos {
+		for _, mode := range modes {
+			ipt, err := New(IPFamily(proto), Mode(mode))
+			if err != nil {
+				panic(fmt.Sprintf("New(IPFamily(%v), Mode(%v)) failed: %v", proto, mode, err))
+			}
+			if ipt.hasCheck {
+				ipt.hasCheck = false
+				ipts = append(ipts, ipt)
+			} else {
+				panic("iptables on this machine is too old -- missing -C")
+			}
+		}
 	}
 	return ipts
 }
@@ -251,7 +293,7 @@ func TestRules(t *testing.T) {
 }
 
 func runRulesTests(t *testing.T, ipt *IPTables) {
-	t.Logf("testing %s (hasWait=%t, hasCheck=%t)", getIptablesCommand(ipt.Proto()), ipt.hasWait, ipt.hasCheck)
+	t.Logf("testing %s (hasWait=%t, hasCheck=%t)", getIptablesCommand(ipt.Proto(), ModeTypeAuto), ipt.hasWait, ipt.hasCheck)
 
 	var address1, address2, subnet1, subnet2 string
 	if ipt.Proto() == ProtocolIPv6 {
@@ -689,7 +731,7 @@ func TestExtractIptablesVersion(t *testing.T) {
 				t.Fatalf("unexpected err %s", err)
 			}
 
-			if v1 != tt.v1 || v2 != tt.v2 || v3 != tt.v3 || mode != tt.mode {
+			if v1 != tt.v1 || v2 != tt.v2 || v3 != tt.v3 || mode != ModeType(tt.mode) {
 				t.Fatalf("expected %d %d %d %s, got %d %d %d %s",
 					tt.v1, tt.v2, tt.v3, tt.mode,
 					v1, v2, v3, mode)
