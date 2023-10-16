@@ -106,8 +106,20 @@ func Timeout(timeout int) option {
 	}
 }
 
-// New creates a new IPTables configured with the options passed as parameter.
-// For backwards compatibility, by default always uses IPv4 and timeout 0.
+func Path(path string) option {
+	return func(ipt *IPTables) {
+		ipt.path = path
+	}
+}
+
+// New creates a new IPTables configured with the options passed as parameters.
+// Supported parameters are:
+//
+//	IPFamily(Protocol)
+//	Timeout(int)
+//	Path(string)
+//
+// For backwards compatibility, by default New uses IPv4 and timeout 0.
 // i.e. you can create an IPv6 IPTables using a timeout of 5 seconds passing
 // the IPFamily and Timeout options as follow:
 //
@@ -117,13 +129,21 @@ func New(opts ...option) (*IPTables, error) {
 	ipt := &IPTables{
 		proto:   ProtocolIPv4,
 		timeout: 0,
+		path:    "",
 	}
 
 	for _, opt := range opts {
 		opt(ipt)
 	}
 
-	path, err := exec.LookPath(getIptablesCommand(ipt.proto))
+	// if path wasn't preset through New(Path()), autodiscover it
+	cmd := ""
+	if ipt.path == "" {
+		cmd = getIptablesCommand(ipt.proto)
+	} else {
+		cmd = ipt.path
+	}
+	path, err := exec.LookPath(cmd)
 	if err != nil {
 		return nil, err
 	}

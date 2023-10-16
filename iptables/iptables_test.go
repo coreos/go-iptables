@@ -70,6 +70,54 @@ func TestTimeout(t *testing.T) {
 
 }
 
+// force usage of -legacy or -nft commands and check that they're detected correctly
+func TestLegacyDetection(t *testing.T) {
+	testCases := []struct {
+		in   string
+		mode string
+		err  bool
+	}{
+		{
+			"iptables-legacy",
+			"legacy",
+			false,
+		},
+		{
+			"ip6tables-legacy",
+			"legacy",
+			false,
+		},
+		{
+			"iptables-nft",
+			"nf_tables",
+			false,
+		},
+		{
+			"ip6tables-nft",
+			"nf_tables",
+			false,
+		},
+	}
+
+	for i, tt := range testCases {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			ipt, err := New(Path(tt.in))
+			if err == nil && tt.err {
+				t.Fatal("expected err, got none")
+			} else if err != nil && !tt.err {
+				t.Fatalf("unexpected err %s", err)
+			}
+
+			if !strings.Contains(ipt.path, tt.in) {
+				t.Fatalf("Expected path %s in %s", tt.in, ipt.path)
+			}
+			if ipt.mode != tt.mode {
+				t.Fatalf("Expected %s iptables, but got %s", tt.mode, ipt.mode)
+			}
+		})
+	}
+}
+
 func randChain(t *testing.T) string {
 	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
