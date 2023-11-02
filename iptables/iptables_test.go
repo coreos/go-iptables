@@ -420,15 +420,25 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 	}
 
 	opt := "--"
-	if ipt.proto == ProtocolIPv6 {
+	prot := "0"
+	if ipt.proto == ProtocolIPv6 &&
+		ipt.v1 == 1 && ipt.v2 <= 8 && ipt.v3 < 9 {
+		// this is fixed in iptables 1.8.9 via iptables/6e41c2d874
 		opt = "  "
+		// this is fixed in iptables 1.8.9 via iptables/da8ecc62dd
+		prot = "all"
+	}
+	if ipt.proto == ProtocolIPv4 &&
+		ipt.v1 == 1 && ipt.v2 <= 8 && ipt.v3 < 9 {
+		// this is fixed in iptables 1.8.9 via iptables/da8ecc62dd
+		prot = "all"
 	}
 
 	expectedStats := [][]string{
-		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet1, address1, ""},
-		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet2, address2, ""},
-		{"0", "0", "ACCEPT", "all", opt, "*", "*", subnet2, address1, ""},
-		{"0", "0", "ACCEPT", "all", opt, "*", "*", address1, subnet2, ""},
+		{"0", "0", "ACCEPT", prot, opt, "*", "*", subnet1, address1, ""},
+		{"0", "0", "ACCEPT", prot, opt, "*", "*", subnet2, address2, ""},
+		{"0", "0", "ACCEPT", prot, opt, "*", "*", subnet2, address1, ""},
+		{"0", "0", "ACCEPT", prot, opt, "*", "*", address1, subnet2, ""},
 	}
 
 	if !reflect.DeepEqual(stats, expectedStats) {
@@ -448,10 +458,10 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 	_, subnet2CIDR, _ := net.ParseCIDR(subnet2)
 
 	expectedStructStats := []Stat{
-		{0, 0, "ACCEPT", "all", opt, "*", "*", subnet1CIDR, address1CIDR, ""},
-		{0, 0, "ACCEPT", "all", opt, "*", "*", subnet2CIDR, address2CIDR, ""},
-		{0, 0, "ACCEPT", "all", opt, "*", "*", subnet2CIDR, address1CIDR, ""},
-		{0, 0, "ACCEPT", "all", opt, "*", "*", address1CIDR, subnet2CIDR, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet1CIDR, address1CIDR, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet2CIDR, address2CIDR, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet2CIDR, address1CIDR, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", address1CIDR, subnet2CIDR, ""},
 	}
 
 	if !reflect.DeepEqual(structStats, expectedStructStats) {
