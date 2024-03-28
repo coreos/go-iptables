@@ -72,6 +72,7 @@ const (
 
 type IPTables struct {
 	path              string
+	rpath             string
 	proto             Protocol
 	hasCheck          bool
 	hasWait           bool
@@ -155,6 +156,12 @@ func New(opts ...option) (*IPTables, error) {
 	}
 	ipt.path = path
 
+	rpath, err := exec.LookPath(getIptablesRestoreCommand(ipt.proto))
+	if err != nil {
+		return nil, err
+	}
+	ipt.rpath = rpath
+
 	vstring, err := getIptablesVersionString(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not get iptables version: %v", err)
@@ -231,6 +238,23 @@ func (ipt *IPTables) InsertUnique(table, chain string, pos int, rulespec ...stri
 	}
 
 	return nil
+}
+
+// Restore replaces specified chains and rules in a specific table
+// rulesMap is keyed by chain name, and holds slices of rulespecs
+// Only chains specified in the map will be flushed and replaced. Other chains will not be affected.
+func (ipt *IPTables) Restore(table string, rulesMap map[string][][]string) error {
+	restoreRules := "*" + table
+	for chain, rules := range rulesMap {
+		restoreRules += "\n" + fmt.Sprintf(":%s - [0:0]", strings.ToUpper(chain))
+		for _, rule := range rules {
+			restoreRules += "\n" + fmt.Sprintf("-I %s %s", chain, strings.Join(rule, " "))
+		}
+	}
+	restoreRules += "\nCOMMIT\n"
+	cmd := []string{"-n"}
+
+	return ipt.runRestore(cmd, restoreRules)
 }
 
 // Append appends rulespec to specified table/chain
@@ -556,6 +580,57 @@ func (ipt *IPTables) run(args ...string) error {
 
 // runWithOutput runs an iptables command with the given arguments,
 // writing any stdout output to the given writer
+func (ipt *IPTables) runRestore(args []string, input string) error {
+	args = append([]string{ipt.rpath}, args...)
+	if ipt.hasWait {
+		args = append(args, "--wait")
+		if ipt.timeout != 0 && ipt.waitSupportSecond {
+			args = append(args, strconv.Itoa(ipt.timeout))
+		}
+	} else {
+		fmu, err := newXtablesFileLock()
+		if err != nil {
+			return err
+		}
+		ul, err := fmu.tryLock()
+		if err != nil {
+			syscall.Close(fmu.fd)
+			return err
+		}
+		defer ul.Unlock()
+	}
+
+	var stderr bytes.Buffer
+	cmd := exec.Cmd{
+		Path:   ipt.rpath,
+		Args:   args,
+		Stderr: &stderr,
+	}
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer stdin.Close()
+		io.WriteString(stdin, input)
+	}()
+
+	if err := cmd.Run(); err != nil {
+		switch e := err.(type) {
+		case *exec.ExitError:
+			return &Error{*e, cmd, stderr.String(), nil}
+		default:
+			return err
+		}
+	}
+
+	return nil
+}
+
+// runWithOutput runs an iptables command with the given arguments,
+// writing any stdout output to the given writer
 func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	args = append([]string{ipt.path}, args...)
 	if ipt.hasWait {
@@ -604,6 +679,15 @@ func getIptablesCommand(proto Protocol) string {
 		return "ip6tables"
 	} else {
 		return "iptables"
+	}
+}
+
+// getIptablesRestoreCommand returns the correct command for the given protocol, either "iptables" or "ip6tables".
+func getIptablesRestoreCommand(proto Protocol) string {
+	if proto == ProtocolIPv6 {
+		return "ip6tables-restore"
+	} else {
+		return "iptables-restore"
 	}
 }
 
