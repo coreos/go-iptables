@@ -165,6 +165,58 @@ func mustTestableIptables() []*IPTables {
 	return ipts
 }
 
+func TestRestore(t *testing.T) {
+	for i, ipt := range mustTestableIptables() {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			runRestoreTests(t, ipt)
+		})
+	}
+}
+
+func runRestoreTests(t *testing.T, ipt *IPTables) {
+	t.Logf("testing %s (hasWait=%t, hasCheck=%t)", ipt.path, ipt.hasWait, ipt.hasCheck)
+	var address1, address2, subnet1, subnet2 string
+	if ipt.Proto() == ProtocolIPv6 {
+		address1 = "2001:db8::1"
+		address2 = "2001:db8::2"
+		subnet1 = "2001:db8:a::/48"
+		subnet2 = "2001:db8:b::/48"
+	} else {
+		address1 = "203.0.113.1"
+		address2 = "203.0.113.2"
+		subnet1 = "192.0.2.0/24"
+		subnet2 = "198.51.100.0/24"
+	}
+
+	chain := randChain(t)
+	rule1 := []string{"-d", subnet1, "-p", "tcp", "-m", "tcp", "--dport", "80", "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:80", address1)}
+	rule2 := []string{"-d", subnet2, "-p", "tcp", "-m", "tcp", "--dport", "80", "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:80", address2)}
+
+	x := map[string][][]string{
+		chain: {rule1, rule2},
+	}
+	err := ipt.Restore("nat", x)
+	if err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	rules, err := ipt.List("nat", chain)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+
+	expected := []string{
+		"-N " + chain,
+		"-A " + chain + " -d " + subnet2 + " -p tcp -m tcp --dport 80 -j DNAT --to-destination " + fmt.Sprintf("%s:80", address2),
+		"-A " + chain + " -d " + subnet1 + " -p tcp -m tcp --dport 80 -j DNAT --to-destination " + fmt.Sprintf("%s:80", address1),
+	}
+
+	if !reflect.DeepEqual(rules, expected) {
+		t.Fatalf("List mismatch: \ngot  %#v \nneed %#v", rules, expected)
+	}
+
+}
+
 func TestChain(t *testing.T) {
 	for i, ipt := range mustTestableIptables() {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
