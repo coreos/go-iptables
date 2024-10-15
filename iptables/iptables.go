@@ -508,6 +508,11 @@ func (ipt *IPTables) ClearChain(table, chain string) error {
 	}
 }
 
+// Flush table chain
+func (ipt *IPTables) FlushChain(table string, chain string) error {
+	return ipt.run("-t", table, "--flush", chain)
+}
+
 // RenameChain renames the old chain to the new one.
 func (ipt *IPTables) RenameChain(table, oldChain, newChain string) error {
 	return ipt.run("-t", table, "-E", oldChain, newChain)
