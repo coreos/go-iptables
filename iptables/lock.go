@@ -35,9 +35,13 @@ type Unlocker interface {
 	Unlock() error
 }
 
-type nopUnlocker struct{}
+type nopUnlocker struct {
+	fd int
+}
 
-func (_ nopUnlocker) Unlock() error { return nil }
+func (n *nopUnlocker) Unlock() error {
+	return syscall.Close(n.fd)
+}
 
 type fileLock struct {
 	// mu is used to protect against concurrent invocations from within this process
@@ -57,7 +61,7 @@ func (l *fileLock) tryLock() (Unlocker, error) {
 	switch err {
 	case syscall.EWOULDBLOCK:
 		l.mu.Unlock()
-		return nopUnlocker{}, nil
+		return &nopUnlocker{l.fd}, nil
 	case nil:
 		return l, nil
 	default:
