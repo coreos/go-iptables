@@ -522,6 +522,22 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("DeleteIfExists failed for non-existing rule: %v", err)
 	}
 
+	// Verify DeleteIfExists is compatible with rules returned from List
+	err = ipt.Append("filter", chain, "-s", address3, "-d", subnet2, "-j", "ACCEPT")
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	rules, err = ipt.List("filter", chain)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+
+	err = ipt.DeleteIfExists("filter", chain, rules[0])
+	if err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
 	// Clear the chain that was created.
 	err = ipt.ClearChain("filter", chain)
 	if err != nil {

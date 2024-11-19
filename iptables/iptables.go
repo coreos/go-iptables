@@ -194,7 +194,12 @@ func (ipt *IPTables) Exists(table, chain string, rulespec ...string) (bool, erro
 		return ipt.existsForOldIptables(table, chain, rulespec)
 
 	}
-	cmd := append([]string{"-t", table, "-C", chain}, rulespec...)
+	spec := rulespec
+	// truncate "-A <CHAIN>" if present since -A collides with -C
+	if len(spec) > 1 && spec[0] == "-A" {
+		spec = spec[2:]
+	}
+	cmd := append([]string{"-t", table, "-C", chain}, spec...)
 	err := ipt.run(cmd...)
 	eerr, eok := err.(*Error)
 	switch {
@@ -255,7 +260,12 @@ func (ipt *IPTables) AppendUnique(table, chain string, rulespec ...string) error
 
 // Delete removes rulespec in specified table/chain
 func (ipt *IPTables) Delete(table, chain string, rulespec ...string) error {
-	cmd := append([]string{"-t", table, "-D", chain}, rulespec...)
+	spec := rulespec
+	// truncate "-A <CHAIN>" if present since -A collides with -D
+	if len(spec) > 1 && spec[0] == "-A" {
+		spec = spec[2:]
+	}
+	cmd := append([]string{"-t", table, "-D", chain}, spec...)
 	return ipt.run(cmd...)
 }
 
