@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"os"
 )
 
 // Adds the output of stderr to exec.ExitError
@@ -585,6 +586,12 @@ func (ipt *IPTables) runWithOutput(args []string, stdout io.Writer) error {
 	}
 
 	var stderr bytes.Buffer
+
+	//expand environment variables
+	for index, element := range args {
+		args[index] = os.ExpandEnv(element)
+	}
+
 	cmd := exec.Cmd{
 		Path:   ipt.path,
 		Args:   args,
