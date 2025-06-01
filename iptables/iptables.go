@@ -50,6 +50,7 @@ var isNotExistPatterns = []string{
 	"No chain/target/match by that name.\n",
 	"No such file or directory",
 	"does not exist",
+	"Couldn't find target",
 }
 
 // IsNotExist returns true if the error is due to the chain or rule not existing
