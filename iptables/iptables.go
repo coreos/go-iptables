@@ -16,6 +16,7 @@ package iptables
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -84,18 +85,24 @@ type IPTables struct {
 	timeout           int    // time to wait for the iptables lock, default waits forever
 }
 
+// InvertibleIPNet - is net.IPNet with inverse(!) match symbol
+type InvertibleIPNet struct {
+	*net.IPNet `json:"net"`
+	Invert     bool `json:"invert"`
+}
+
 // Stat represents a structured statistic entry.
 type Stat struct {
-	Packets     uint64     `json:"pkts"`
-	Bytes       uint64     `json:"bytes"`
-	Target      string     `json:"target"`
-	Protocol    string     `json:"prot"`
-	Opt         string     `json:"opt"`
-	Input       string     `json:"in"`
-	Output      string     `json:"out"`
-	Source      *net.IPNet `json:"source"`
-	Destination *net.IPNet `json:"destination"`
-	Options     string     `json:"options"`
+	Packets     uint64           `json:"pkts"`
+	Bytes       uint64           `json:"bytes"`
+	Target      string           `json:"target"`
+	Protocol    string           `json:"prot"`
+	Opt         string           `json:"opt"`
+	Input       string           `json:"in"`
+	Output      string           `json:"out"`
+	Source      *InvertibleIPNet `json:"source"`
+	Destination *InvertibleIPNet `json:"destination"`
+	Options     string           `json:"options"`
 }
 
 type option func(*IPTables)
@@ -376,14 +383,11 @@ func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 		// field containing 2 single spaces.
 		if ipv6 {
 			// Check if field 6 is "opt" or "source" address
-			dest := fields[6]
-			ip, _, _ := net.ParseCIDR(dest)
-			if ip == nil {
-				ip = net.ParseIP(dest)
-			}
+			dest := appendSubnet(fields[6])
+			ipnet, _ := ParseInvertibleNet(dest)
 
 			// If we detected a CIDR or IP, the "opt" field is empty.. insert it.
-			if ip != nil {
+			if ipnet != nil {
 				f := []string{}
 				f = append(f, fields[:4]...)
 				f = append(f, "  ") // Empty "opt" field for ip6tables
@@ -423,11 +427,11 @@ func (ipt *IPTables) ParseStat(stat []string) (parsed Stat, err error) {
 	if err != nil {
 		return parsed, fmt.Errorf(err.Error(), "could not parse bytes")
 	}
-	_, parsed.Source, err = net.ParseCIDR(stat[7])
+	parsed.Source, err = ParseInvertibleNet(stat[7])
 	if err != nil {
 		return parsed, fmt.Errorf(err.Error(), "could not parse source")
 	}
-	_, parsed.Destination, err = net.ParseCIDR(stat[8])
+	parsed.Destination, err = ParseInvertibleNet(stat[8])
 	if err != nil {
 		return parsed, fmt.Errorf(err.Error(), "could not parse destination")
 	}
@@ -748,4 +752,26 @@ func filterRuleOutput(rule string) string {
 	}
 
 	return out
+}
+
+func ParseInvertibleNet(s string) (*InvertibleIPNet, error) {
+	if len(s) == 0 {
+		return nil, errors.New("empty ipnet")
+	}
+
+	invert := false
+	if s[0] == '!' {
+		invert = true
+		s = s[1:]
+	}
+
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return &InvertibleIPNet{
+		IPNet:  ipnet,
+		Invert: invert,
+	}, nil
 }

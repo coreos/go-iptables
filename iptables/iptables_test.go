@@ -18,7 +18,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"net"
 	"os"
 	"reflect"
 	"strings"
@@ -301,12 +300,34 @@ func TestRules(t *testing.T) {
 func runRulesTests(t *testing.T, ipt *IPTables) {
 	t.Logf("testing %s (hasWait=%t, hasCheck=%t)", getIptablesCommand(ipt.Proto()), ipt.hasWait, ipt.hasCheck)
 
+	formatInvert := func(sd, addr string) []string {
+		ret := make([]string, 0)
+		if addr[0] == '!' {
+			ret = append(ret, "!")
+			addr = addr[1:]
+		}
+		ret = append(ret, sd, addr)
+		return ret
+	}
+
+	spec := func(parts ...[]string) []string {
+		ret := make([]string, 0)
+
+		for _, part := range parts {
+			for _, sub := range part {
+				ret = append(ret, sub)
+			}
+		}
+
+		return ret
+	}
+
 	var address1, address2, address3, address4, subnet1, subnet2, subnet3, subnet4 string
 	if ipt.Proto() == ProtocolIPv6 {
 		address1 = "2001:db8::1/128"
 		address2 = "2001:db8::2/128"
 		address3 = "2001:db8::3/128"
-		address4 = "2001:db8::4/128"
+		address4 = "!2001:db8::4/128"
 		subnet1 = "2001:db8:a::/48"
 		subnet2 = "2001:db8:b::/48"
 		subnet3 = "2001:db8:c::/48"
@@ -315,7 +336,7 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		address1 = "203.0.113.1/32"
 		address2 = "203.0.113.2/32"
 		address3 = "203.0.113.3/32"
-		address4 = "203.0.113.4/32"
+		address4 = "!203.0.113.4/32"
 		subnet1 = "192.0.2.0/24"
 		subnet2 = "198.51.100.0/24"
 		subnet3 = "198.51.101.0/24"
@@ -330,57 +351,68 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 		t.Fatalf("ClearChain (of missing) failed: %v", err)
 	}
 
-	err = ipt.Append("filter", chain, "-s", subnet1, "-d", address1, "-j", "ACCEPT")
+	err = ipt.Append("filter", chain,
+		spec(formatInvert("-s", subnet1), formatInvert("-d", address1), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Append failed: %v", err)
 	}
 
-	err = ipt.AppendUnique("filter", chain, "-s", subnet1, "-d", address1, "-j", "ACCEPT")
+	err = ipt.AppendUnique("filter", chain,
+		spec(formatInvert("-s", subnet1), formatInvert("-d", address1), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("AppendUnique failed: %v", err)
 	}
 
-	err = ipt.Append("filter", chain, "-s", subnet2, "-d", address1, "-j", "ACCEPT")
+	err = ipt.Append("filter", chain,
+		spec(formatInvert("-s", subnet2), formatInvert("-d", address1), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Append failed: %v", err)
 	}
 
-	err = ipt.Insert("filter", chain, 2, "-s", subnet2, "-d", address2, "-j", "ACCEPT")
+	err = ipt.Insert("filter", chain, 2,
+		spec(formatInvert("-s", subnet2), formatInvert("-d", address2), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Insert failed: %v", err)
 	}
 
-	err = ipt.InsertUnique("filter", chain, 2, "-s", subnet2, "-d", address2, "-j", "ACCEPT")
+	err = ipt.InsertUnique("filter", chain, 2,
+		spec(formatInvert("-s", subnet2), formatInvert("-d", address2), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Insert failed: %v", err)
 	}
 
-	err = ipt.Insert("filter", chain, 1, "-s", subnet1, "-d", address2, "-j", "ACCEPT")
+	err = ipt.Insert("filter", chain, 1,
+		spec(formatInvert("-s", subnet1), formatInvert("-d", address2), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Insert failed: %v", err)
 	}
 
-	err = ipt.Delete("filter", chain, "-s", subnet1, "-d", address2, "-j", "ACCEPT")
+	err = ipt.Delete("filter", chain,
+		spec(formatInvert("-s", subnet1), formatInvert("-d", address2), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	err = ipt.Insert("filter", chain, 1, "-s", subnet1, "-d", address2, "-j", "ACCEPT")
+	err = ipt.Insert("filter", chain, 1,
+		spec(formatInvert("-s", subnet1), formatInvert("-d", address2), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Insert failed: %v", err)
 	}
 
-	err = ipt.Replace("filter", chain, 1, "-s", subnet2, "-d", address2, "-j", "ACCEPT")
+	err = ipt.Replace("filter", chain, 1,
+		spec(formatInvert("-s", subnet2), formatInvert("-d", address2), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Replace failed: %v", err)
 	}
 
-	err = ipt.Delete("filter", chain, "-s", subnet2, "-d", address2, "-j", "ACCEPT")
+	err = ipt.Delete("filter", chain,
+		spec(formatInvert("-s", subnet2), formatInvert("-d", address2), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	err = ipt.Append("filter", chain, "-s", address1, "-d", subnet2, "-j", "ACCEPT")
+	err = ipt.Append("filter", chain,
+		spec(formatInvert("-s", address1), formatInvert("-d", subnet2), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Append failed: %v", err)
 	}
@@ -392,11 +424,13 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 
 	// Verify DeleteById functionality by adding two new rules and removing second last
 	ruleCount1 := len(rules)
-	err = ipt.Append("filter", chain, "-s", address3, "-d", subnet3, "-j", "ACCEPT")
+	err = ipt.Append("filter", chain,
+		spec(formatInvert("-s", address3), formatInvert("-d", subnet3), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Append failed: %v", err)
 	}
-	err = ipt.Append("filter", chain, "-s", address4, "-d", subnet4, "-j", "ACCEPT")
+	err = ipt.Append("filter", chain,
+		spec(formatInvert("-s", address4), formatInvert("-d", subnet4), []string{"-j", "ACCEPT"})...)
 	if err != nil {
 		t.Fatalf("Append failed: %v", err)
 	}
@@ -411,11 +445,16 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 
 	expected := []string{
 		"-N " + chain,
-		"-A " + chain + " -s " + subnet1 + " -d " + address1 + " -j ACCEPT",
-		"-A " + chain + " -s " + subnet2 + " -d " + address2 + " -j ACCEPT",
-		"-A " + chain + " -s " + subnet2 + " -d " + address1 + " -j ACCEPT",
-		"-A " + chain + " -s " + address1 + " -d " + subnet2 + " -j ACCEPT",
-		"-A " + chain + " -s " + address4 + " -d " + subnet4 + " -j ACCEPT",
+		"-A " + chain + " " + strings.Join(formatInvert("-s", subnet1), " ") +
+			" " + strings.Join(formatInvert("-d", address1), " ") + " -j ACCEPT",
+		"-A " + chain + " " + strings.Join(formatInvert("-s", subnet2), " ") +
+			" " + strings.Join(formatInvert("-d", address2), " ") + " -j ACCEPT",
+		"-A " + chain + " " + strings.Join(formatInvert("-s", subnet2), " ") +
+			" " + strings.Join(formatInvert("-d", address1), " ") + " -j ACCEPT",
+		"-A " + chain + " " + strings.Join(formatInvert("-s", address1), " ") +
+			" " + strings.Join(formatInvert("-d", subnet2), " ") + " -j ACCEPT",
+		"-A " + chain + " " + strings.Join(formatInvert("-s", address4), " ") +
+			" " + strings.Join(formatInvert("-d", subnet4), " ") + " -j ACCEPT",
 	}
 
 	if !reflect.DeepEqual(rules, expected) {
@@ -430,11 +469,16 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 	makeExpected := func(suffix string) []string {
 		return []string{
 			"-N " + chain,
-			"-A " + chain + " -s " + subnet1 + " -d " + address1 + " " + suffix,
-			"-A " + chain + " -s " + subnet2 + " -d " + address2 + " " + suffix,
-			"-A " + chain + " -s " + subnet2 + " -d " + address1 + " " + suffix,
-			"-A " + chain + " -s " + address1 + " -d " + subnet2 + " " + suffix,
-			"-A " + chain + " -s " + address4 + " -d " + subnet4 + " " + suffix,
+			"-A " + chain + " " + strings.Join(formatInvert("-s", subnet1), " ") +
+				" " + strings.Join(formatInvert("-d", address1), " ") + " " + suffix,
+			"-A " + chain + " " + strings.Join(formatInvert("-s", subnet2), " ") +
+				" " + strings.Join(formatInvert("-d", address2), " ") + " " + suffix,
+			"-A " + chain + " " + strings.Join(formatInvert("-s", subnet2), " ") +
+				" " + strings.Join(formatInvert("-d", address1), " ") + " " + suffix,
+			"-A " + chain + " " + strings.Join(formatInvert("-s", address1), " ") +
+				" " + strings.Join(formatInvert("-d", subnet2), " ") + " " + suffix,
+			"-A " + chain + " " + strings.Join(formatInvert("-s", address4), " ") +
+				" " + strings.Join(formatInvert("-d", subnet4), " ") + " " + suffix,
 		}
 	}
 	// older nf_tables returned the second order
@@ -482,19 +526,19 @@ func runRulesTests(t *testing.T, ipt *IPTables) {
 
 	// It's okay to not check the following errors as they will be evaluated
 	// in the subsequent usage
-	_, address1CIDR, _ := net.ParseCIDR(address1)
-	_, address2CIDR, _ := net.ParseCIDR(address2)
-	_, address4CIDR, _ := net.ParseCIDR(address4)
-	_, subnet1CIDR, _ := net.ParseCIDR(subnet1)
-	_, subnet2CIDR, _ := net.ParseCIDR(subnet2)
-	_, subnet4CIDR, _ := net.ParseCIDR(subnet4)
+	address1IPNet, _ := ParseInvertibleNet(address1)
+	address2IPNet, _ := ParseInvertibleNet(address2)
+	address4IPNet, _ := ParseInvertibleNet(address4)
+	subnet1IPNet, _ := ParseInvertibleNet(subnet1)
+	subnet2IPNet, _ := ParseInvertibleNet(subnet2)
+	subnet4IPNet, _ := ParseInvertibleNet(subnet4)
 
 	expectedStructStats := []Stat{
-		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet1CIDR, address1CIDR, ""},
-		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet2CIDR, address2CIDR, ""},
-		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet2CIDR, address1CIDR, ""},
-		{0, 0, "ACCEPT", prot, opt, "*", "*", address1CIDR, subnet2CIDR, ""},
-		{0, 0, "ACCEPT", prot, opt, "*", "*", address4CIDR, subnet4CIDR, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet1IPNet, address1IPNet, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet2IPNet, address2IPNet, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", subnet2IPNet, address1IPNet, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", address1IPNet, subnet2IPNet, ""},
+		{0, 0, "ACCEPT", prot, opt, "*", "*", address4IPNet, subnet4IPNet, ""},
 	}
 
 	if !reflect.DeepEqual(structStats, expectedStructStats) {
