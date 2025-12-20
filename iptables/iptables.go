@@ -159,7 +159,7 @@ func New(opts ...option) (*IPTables, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get iptables version: %v", err)
 	}
-	v1, v2, v3, mode, err := extractIptablesVersion(vstring)
+	v1, v2, v3, mode, err := ExtractIptablesVersion(vstring)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract iptables version from [%s]: %v", vstring, err)
 	}
@@ -618,10 +618,10 @@ func getIptablesCommandSupport(v1 int, v2 int, v3 int) (bool, bool, bool, bool) 
 	return iptablesHasCheckCommand(v1, v2, v3), iptablesHasWaitCommand(v1, v2, v3), iptablesWaitSupportSecond(v1, v2, v3), iptablesHasRandomFully(v1, v2, v3)
 }
 
-// getIptablesVersion returns the first three components of the iptables version
+// ExtractIptablesVersion returns the first three components of the iptables version
 // and the operating mode (e.g. nf_tables or legacy)
 // e.g. "iptables v1.3.66" would return (1, 3, 66, legacy, nil)
-func extractIptablesVersion(str string) (int, int, int, string, error) {
+func ExtractIptablesVersion(str string) (int, int, int, string, error) {
 	versionMatcher := regexp.MustCompile(`v([0-9]+)\.([0-9]+)\.([0-9]+)(?:\s+\((\w+))?`)
 	result := versionMatcher.FindStringSubmatch(str)
 	if result == nil {

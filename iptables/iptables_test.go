@@ -773,7 +773,7 @@ func TestExtractIptablesVersion(t *testing.T) {
 
 	for i, tt := range testCases {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
-			v1, v2, v3, mode, err := extractIptablesVersion(tt.in)
+			v1, v2, v3, mode, err := ExtractIptablesVersion()(tt.in)
 			if err == nil && tt.err {
 				t.Fatal("expected err, got none")
 			} else if err != nil && !tt.err {
