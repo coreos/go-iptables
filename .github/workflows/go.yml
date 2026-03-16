@@ -24,11 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Set up Go 1.x
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
     - name: Check out repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
     - name: Install Go dependencies
       run: go get golang.org/x/tools/cmd/cover
     - name: Check modules
@@ -37,8 +37,18 @@ jobs:
       run: ./build
     - name: Test
       run: SUDO_PERMITTED=1 ./test
+    - name: Check Go formatting (gofmt)
+      shell: bash
+      run: |
+        GO_FILES=$(find . -name '*.go' -not -path "./vendor/*")
+        UNFORMATTED_FILES=$(gofmt -l $GO_FILES)
+        if [ -n "$UNFORMATTED_FILES" ]; then
+          echo "Go files are not formatted. Please run 'gofmt -w .' on your code."
+          gofmt -d $UNFORMATTED_FILES
+          exit 1
+        fi
+        echo "All Go files are correctly formatted."
     - name: Run linter
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v8
       with:
-        version: v1.61.0
-        args: -E=gofmt --timeout=30m0s
+        version: v2.11.3
