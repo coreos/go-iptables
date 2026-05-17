@@ -280,6 +280,9 @@ func (ipt *IPTables) ListById(table, chain string, id int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if len(rule) == 0 {
+		return "", fmt.Errorf("no rule with id %d in chain %s of table %s", id, chain, table)
+	}
 	return rule[0], nil
 }
 
