@@ -854,3 +854,24 @@ func TestListById(t *testing.T) {
 		})
 	}
 }
+
+func TestParseStatLineEmptyTarget(t *testing.T) {
+	// iptables -nvxL collapses a blank target, so Fields drops that column.
+	got, err := parseStatLine("0 0 tcp -- * * 0.0.0.0/0 1.0.0.1", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"0", "0", "", "tcp", "--", "*", "*", "0.0.0.0/0", "1.0.0.1/32", ""}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v", got)
+	}
+
+	got, err = parseStatLine("0 0 ACCEPT all -- * * 10.0.0.0/8 192.168.0.1", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = []string{"0", "0", "ACCEPT", "all", "--", "*", "*", "10.0.0.0/8", "192.168.0.1/32", ""}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v", got)
+	}
+}

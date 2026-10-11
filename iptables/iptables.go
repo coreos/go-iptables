@@ -343,16 +343,6 @@ func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 		return nil, err
 	}
 
-	appendSubnet := func(addr string) string {
-		if strings.IndexByte(addr, byte('/')) < 0 {
-			if strings.IndexByte(addr, '.') < 0 {
-				return addr + "/128"
-			}
-			return addr + "/32"
-		}
-		return addr
-	}
-
 	ipv6 := ipt.proto == ProtocolIPv6
 
 	// Skip the warning if exist
@@ -367,43 +357,81 @@ func (ipt *IPTables) Stats(table, chain string) ([][]string, error) {
 			continue
 		}
 
-		// Fields:
-		// 0=pkts 1=bytes 2=target 3=prot 4=opt 5=in 6=out 7=source 8=destination 9=options
-		line = strings.TrimSpace(line)
-		fields := strings.Fields(line)
-
-		// The ip6tables verbose output cannot be naively split due to the default "opt"
-		// field containing 2 single spaces.
-		if ipv6 {
-			// Check if field 6 is "opt" or "source" address
-			dest := fields[6]
-			ip, _, _ := net.ParseCIDR(dest)
-			if ip == nil {
-				ip = net.ParseIP(dest)
-			}
-
-			// If we detected a CIDR or IP, the "opt" field is empty.. insert it.
-			if ip != nil {
-				f := []string{}
-				f = append(f, fields[:4]...)
-				f = append(f, "  ") // Empty "opt" field for ip6tables
-				f = append(f, fields[4:]...)
-				fields = f
-			}
+		fields, err := parseStatLine(line, ipv6)
+		if err != nil {
+			return nil, err
 		}
-
-		// Adjust "source" and "destination" to include netmask, to match regular
-		// List output
-		fields[7] = appendSubnet(fields[7])
-		fields[8] = appendSubnet(fields[8])
-
-		// Combine "options" fields 9... into a single space-delimited field.
-		options := fields[9:]
-		fields = fields[:9]
-		fields = append(fields, strings.Join(options, " "))
 		rows = append(rows, fields)
 	}
 	return rows, nil
+}
+
+// parseStatLine splits one verbose `iptables -L -n -v -x` rule.
+// Fields are pkts, bytes, target, prot, opt, in, out, source, destination, options.
+func parseStatLine(line string, ipv6 bool) ([]string, error) {
+	appendSubnet := func(addr string) string {
+		if strings.IndexByte(addr, byte('/')) < 0 {
+			if strings.IndexByte(addr, '.') < 0 {
+				return addr + "/128"
+			}
+			return addr + "/32"
+		}
+		return addr
+	}
+
+	line = strings.TrimSpace(line)
+	fields := strings.Fields(line)
+	if len(fields) < 8 {
+		return nil, fmt.Errorf("stat line contained fewer fields than expected")
+	}
+
+	// strings.Fields drops an empty target, so the source address lands at index 6.
+	if statAddr(fields[6]) && statAddr(fields[7]) {
+		shifted := make([]string, 0, len(fields)+1)
+		shifted = append(shifted, fields[:2]...)
+		shifted = append(shifted, "")
+		shifted = append(shifted, fields[2:]...)
+		fields = shifted
+	}
+
+	// The ip6tables verbose output cannot be naively split due to the default "opt"
+	// field containing 2 single spaces.
+	if ipv6 {
+		// Check if field 6 is "opt" or "source" address
+		dest := fields[6]
+
+		// If we detected a CIDR or IP, the "opt" field is empty.. insert it.
+		if statAddr(dest) {
+			f := []string{}
+			f = append(f, fields[:4]...)
+			f = append(f, "  ") // Empty "opt" field for ip6tables
+			f = append(f, fields[4:]...)
+			fields = f
+		}
+	}
+
+	if len(fields) < 9 {
+		return nil, fmt.Errorf("stat line contained fewer fields than expected")
+	}
+
+	// Adjust "source" and "destination" to include netmask, to match regular
+	// List output
+	fields[7] = appendSubnet(fields[7])
+	fields[8] = appendSubnet(fields[8])
+
+	// Combine "options" fields 9... into a single space-delimited field.
+	options := fields[9:]
+	fields = fields[:9]
+	fields = append(fields, strings.Join(options, " "))
+	return fields, nil
+}
+
+func statAddr(addr string) bool {
+	ip, _, _ := net.ParseCIDR(addr)
+	if ip == nil {
+		ip = net.ParseIP(addr)
+	}
+	return ip != nil
 }
 
 // ParseStat parses a single statistic row into a Stat struct. The input should
